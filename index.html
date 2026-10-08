@@ -1,0 +1,2533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>跃动青春 育心强体 · 信阳师范大学教育科学学院运动打卡与心理状态管理工作台</title>
+<!-- ============================================================
+     跃动青春 育心强体 —— 运动打卡与心理状态管理工作台
+     纯前端单文件应用：数据全部存储于浏览器 localStorage
+     可直接上传 GitHub Pages 部署，无需后端服务器
+     ------------------------------------------------------------
+     【常用修改位置索引】
+       1. 班级架构      →  JS 中 GRADE_CONFIG
+       2. 器材清单      →  JS 中 DEFAULT_EQUIPMENTS
+       3. 配色主题      →  CSS 中 :root 变量
+       4. 运动项目      →  JS 中 SPORTS
+       5. 管理员账号    →  JS 中 ADMIN_PASSWORD（默认 admin888）
+     ============================================================ -->
+<style>
+/* ============================================================
+   一、主题变量：高级蓝色系（深蓝主色 + 浅蓝辅助 + 白底）
+   ============================================================ */
+:root{
+  --navy-900:#0b2545;      /* 深蓝-最暗：标题栏/侧边栏底色 */
+  --navy-800:#12345c;      /* 深蓝-主色 */
+  --navy-700:#1a4a7a;      /* 深蓝-次级 */
+  --navy-600:#235d99;      /* 蓝色-交互 */
+  --blue-500:#2f7dc4;      /* 蓝色-强调 */
+  --blue-400:#4d9ad6;      /* 中蓝 */
+  --blue-300:#8fc0e8;      /* 浅蓝 */
+  --blue-100:#dceaf7;      /* 极浅蓝-背景块 */
+  --blue-50:#eef5fb;       /* 页面浅底 */
+  --line:#d7e3ef;          /* 分割线 */
+  --txt:#132a3f;           /* 主文字 */
+  --txt-sub:#5a7185;       /* 次文字 */
+  --white:#ffffff;
+  --ok:#1f8a5b;            /* 成功-已打卡 */
+  --ok-bg:#e4f4ec;
+  --warn:#b7791f;          /* 警示-待归还 */
+  --warn-bg:#fdf3e0;
+  --danger:#b03a3a;        /* 危险-删除/未打卡 */
+  --danger-bg:#fbeaea;
+  --radius:12px;
+  --radius-sm:8px;
+  --shadow:0 1px 3px rgba(11,37,69,.08), 0 6px 18px rgba(11,37,69,.06);
+  --shadow-hover:0 4px 10px rgba(11,37,69,.12), 0 12px 28px rgba(11,37,69,.10);
+  --sidebar-w:250px;
+  --header-h:64px;
+}
+
+/* ============================================================
+   二、基础重置
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Helvetica Neue",Arial,sans-serif;
+  background:var(--blue-50);
+  color:var(--txt);
+  font-size:14px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;outline:none;}
+button{cursor:pointer;border:none;background:none;}
+a{color:var(--blue-500);text-decoration:none;}
+ul,ol{list-style:none;}
+table{border-collapse:collapse;width:100%;}
+
+/* 滚动条美化 */
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:#c2d5e6;border-radius:8px;}
+::-webkit-scrollbar-thumb:hover{background:var(--blue-300);}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ============================================================
+   三、登录遮罩层
+   ============================================================ */
+#loginLayer{
+  position:fixed;inset:0;z-index:9000;
+  background:linear-gradient(140deg,#08203c 0%,#0f3255 42%,#1a4a7a 78%,#235d99 100%);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  overflow-y:auto;
+}
+#loginLayer::before{
+  content:"";position:absolute;inset:0;
+  background-image:radial-gradient(circle at 18% 22%,rgba(143,192,232,.16) 0,transparent 42%),
+                   radial-gradient(circle at 82% 78%,rgba(77,154,214,.14) 0,transparent 45%);
+  pointer-events:none;
+}
+.login-card{
+  position:relative;width:100%;max-width:520px;
+  background:var(--white);border-radius:16px;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+  padding:38px 36px 30px;
+}
+.login-brand{text-align:center;margin-bottom:26px;}
+.login-brand .emblem{
+  width:60px;height:60px;margin:0 auto 14px;border-radius:16px;
+  background:linear-gradient(150deg,var(--navy-700),var(--blue-500));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:24px;font-weight:700;letter-spacing:1px;
+  box-shadow:0 8px 20px rgba(35,93,153,.35);
+}
+.login-brand h1{font-size:24px;letter-spacing:6px;color:var(--navy-900);font-weight:700;margin-bottom:8px;}
+.login-brand h2{
+  font-size:12.5px;color:var(--txt-sub);font-weight:400;
+  letter-spacing:.4px;line-height:1.7;padding:0 6px;
+}
+.login-tabs{display:flex;gap:8px;background:var(--blue-100);padding:5px;border-radius:10px;margin-bottom:22px;}
+.login-tabs button{
+  flex:1;padding:10px 8px;border-radius:7px;font-size:13.5px;
+  color:var(--navy-700);font-weight:600;transition:.18s;
+}
+.login-tabs button.on{background:var(--white);color:var(--navy-800);box-shadow:0 1px 4px rgba(11,37,69,.14);}
+
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--navy-700);margin-bottom:7px;letter-spacing:.3px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:var(--white);transition:.16s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue-500);box-shadow:0 0 0 3px rgba(47,125,196,.14);}
+.field .hint{font-size:11.5px;color:var(--txt-sub);margin-top:6px;line-height:1.6;}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 18px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:600;
+  transition:.18s;white-space:nowrap;
+}
+.btn-primary{background:linear-gradient(135deg,var(--navy-700),var(--blue-500));color:#fff;box-shadow:0 3px 10px rgba(35,93,153,.28);}
+.btn-primary:hover{filter:brightness(1.08);box-shadow:0 5px 16px rgba(35,93,153,.36);transform:translateY(-1px);}
+.btn-block{width:100%;padding:13px;font-size:15px;letter-spacing:2px;}
+.btn-ghost{background:var(--blue-100);color:var(--navy-700);}
+.btn-ghost:hover{background:var(--blue-300);color:var(--navy-900);}
+.btn-line{background:var(--white);border:1px solid var(--line);color:var(--navy-700);}
+.btn-line:hover{border-color:var(--blue-400);color:var(--blue-500);}
+.btn-danger{background:var(--danger-bg);color:var(--danger);}
+.btn-danger:hover{background:var(--danger);color:#fff;}
+.btn-sm{padding:6px 12px;font-size:12.5px;border-radius:6px;}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important;}
+
+.alert{padding:11px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:14px;line-height:1.6;}
+.alert-info{background:var(--blue-100);color:var(--navy-700);border-left:3px solid var(--blue-500);}
+.alert-warn{background:var(--warn-bg);color:var(--warn);border-left:3px solid var(--warn);}
+
+/* ============================================================
+   四、总体布局：左侧固定导航 + 右侧内容
+   ============================================================ */
+#app{display:none;min-height:100vh;}
+#app.on{display:block;}
+
+/* 顶部固定标题栏 */
+.topbar{
+  position:fixed;top:0;left:0;right:0;height:var(--header-h);z-index:800;
+  background:linear-gradient(96deg,var(--navy-900) 0%,var(--navy-800) 55%,var(--navy-700) 100%);
+  display:flex;align-items:center;gap:14px;padding:0 20px;
+  box-shadow:0 2px 12px rgba(11,37,69,.24);
+}
+.topbar .brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1;}
+.topbar .emblem{
+  width:38px;height:38px;flex:0 0 38px;border-radius:10px;
+  background:linear-gradient(150deg,var(--blue-400),var(--navy-600));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:15px;font-weight:700;letter-spacing:.5px;
+  box-shadow:0 3px 10px rgba(0,0,0,.25);
+}
+.topbar .titles{min-width:0;}
+.topbar .titles h1{
+  font-size:17px;font-weight:700;color:#fff;letter-spacing:5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.topbar .titles p{
+  font-size:11.5px;color:#a9c8e4;letter-spacing:.2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.topbar .who{
+  display:flex;align-items:center;gap:10px;flex:0 0 auto;
+}
+.who-badge{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+  padding:6px 12px;border-radius:99px;color:#fff;font-size:12.5px;
+  max-width:230px;
+}
+.who-badge .dot{width:7px;height:7px;border-radius:50%;background:#5fd39b;flex:0 0 7px;box-shadow:0 0 8px #5fd39b;}
+.who-badge .who-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.menu-btn{
+  display:none;width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,.12);
+  align-items:center;justify-content:center;flex-direction:column;gap:4px;
+}
+.menu-btn span{display:block;width:17px;height:2px;background:#fff;border-radius:2px;}
+
+/* 侧边导航 */
+.sidebar{
+  position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--sidebar-w);z-index:790;
+  background:var(--white);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow-y:auto;
+  transition:transform .24s ease;
+}
+.nav-group{padding:16px 14px 4px;}
+.nav-group-title{
+  font-size:11px;font-weight:700;color:#93a9bc;letter-spacing:1.4px;
+  padding:0 10px 8px;text-transform:uppercase;
+}
+.nav-item{
+  display:flex;align-items:center;gap:11px;width:100%;
+  padding:10.5px 12px;border-radius:9px;margin-bottom:3px;
+  color:var(--navy-700);font-size:13.5px;font-weight:500;text-align:left;
+  transition:.16s;position:relative;
+}
+.nav-item .ico{
+  width:24px;height:24px;flex:0 0 24px;border-radius:7px;
+  background:var(--blue-100);color:var(--navy-600);
+  display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;
+  transition:.16s;
+}
+.nav-item:hover{background:var(--blue-50);color:var(--navy-900);}
+.nav-item:hover .ico{background:var(--blue-300);}
+.nav-item.on{background:linear-gradient(100deg,var(--navy-800),var(--navy-600));color:#fff;font-weight:600;box-shadow:0 3px 12px rgba(26,74,122,.26);}
+.nav-item.on .ico{background:rgba(255,255,255,.2);color:#fff;}
+.nav-item .lock{
+  margin-left:auto;font-size:10px;color:#b9c9d8;flex:0 0 auto;
+}
+.nav-item.on .lock{color:#cfe2f5;}
+.sidebar-foot{
+  margin-top:auto;padding:14px;border-top:1px solid var(--line);
+  font-size:11px;color:#9fb2c4;line-height:1.7;
+}
+
+/* 主内容 */
+.main{
+  margin-left:var(--sidebar-w);margin-top:var(--header-h);
+  padding:22px 24px 60px;min-height:calc(100vh - var(--header-h));
+}
+.page{display:none;animation:fadeUp .22s ease;}
+.page.on{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+.page-head{margin-bottom:18px;}
+.page-head h2{font-size:20px;color:var(--navy-900);font-weight:700;letter-spacing:.6px;display:flex;align-items:center;gap:10px;}
+.page-head h2::before{content:"";width:4px;height:20px;border-radius:3px;background:linear-gradient(var(--navy-700),var(--blue-400));}
+.page-head p{font-size:12.5px;color:var(--txt-sub);margin-top:7px;padding-left:14px;}
+
+/* ============================================================
+   五、卡片 / 网格 / 面板
+   ============================================================ */
+.card{
+  background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);transition:box-shadow .2s,transform .2s;
+}
+.card-pad{padding:18px 20px;}
+.card-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:15px 20px;border-bottom:1px solid var(--line);
+}
+.card-head h3{font-size:14.5px;color:var(--navy-800);font-weight:700;letter-spacing:.3px;}
+.card-head .sub{font-size:11.5px;color:var(--txt-sub);font-weight:400;margin-top:2px;}
+.card-body{padding:18px 20px;}
+
+.grid{display:grid;gap:16px;}
+.g-2{grid-template-columns:repeat(2,1fr);}
+.g-3{grid-template-columns:repeat(3,1fr);}
+.g-4{grid-template-columns:repeat(4,1fr);}
+.mb16{margin-bottom:16px;}
+.mb12{margin-bottom:12px;}
+.mt16{margin-top:16px;}
+
+/* 统计卡片 */
+.stat{
+  background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+  padding:17px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+  transition:.2s;
+}
+.stat:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
+.stat::after{
+  content:"";position:absolute;right:-26px;top:-26px;width:78px;height:78px;border-radius:50%;
+  background:var(--blue-100);opacity:.6;
+}
+.stat .lab{font-size:12px;color:var(--txt-sub);font-weight:600;letter-spacing:.4px;position:relative;z-index:1;}
+.stat .val{font-size:27px;font-weight:700;color:var(--navy-900);line-height:1.25;margin-top:6px;position:relative;z-index:1;}
+.stat .val small{font-size:13px;font-weight:600;color:var(--txt-sub);margin-left:3px;}
+.stat .tip{font-size:11.5px;color:#93a9bc;margin-top:3px;position:relative;z-index:1;}
+.stat.accent{background:linear-gradient(125deg,var(--navy-800),var(--navy-600));border-color:transparent;}
+.stat.accent .lab{color:#a9c8e4;}
+.stat.accent .val{color:#fff;}
+.stat.accent .val small{color:#cfe2f5;}
+.stat.accent .tip{color:#9dc0e0;}
+.stat.accent::after{background:rgba(255,255,255,.09);}
+
+/* 进度条 */
+.bar{height:9px;background:var(--blue-100);border-radius:99px;overflow:hidden;}
+.bar > i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--navy-600),var(--blue-400));transition:width .5s ease;}
+.bar.ok > i{background:linear-gradient(90deg,#1f8a5b,#4bbd8b);}
+.bar.mid > i{background:linear-gradient(90deg,#b7791f,#e0ad55);}
+.bar.low > i{background:linear-gradient(90deg,#b03a3a,#d97a7a);}
+.bar-row{display:flex;align-items:center;gap:12px;}
+.bar-row .bar{flex:1;}
+.bar-row .pct{font-size:13px;font-weight:700;color:var(--navy-800);min-width:48px;text-align:right;}
+
+/* ============================================================
+  六、表单 / 表格
+   ============================================================ */
+.form-row{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
+.form-row-2{display:grid;gap:14px;grid-template-columns:1fr 1fr;}
+.form-row-3{display:grid;gap:14px;grid-template-columns:repeat(3,1fr);}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.toolbar .spacer{flex:1;}
+
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius-sm);}
+table.tbl{min-width:100%;font-size:13px;}
+table.tbl thead th{
+  background:var(--blue-100);color:var(--navy-800);font-weight:700;font-size:12.5px;
+  text-align:left;padding:11px 13px;white-space:nowrap;border-bottom:1px solid var(--line);
+  letter-spacing:.3px;
+}
+table.tbl thead th:first-child{border-top-left-radius:var(--radius-sm);}
+table.tbl thead th:last-child{border-top-right-radius:var(--radius-sm);}
+table.tbl tbody td{padding:11px 13px;border-bottom:1px solid #edf2f7;vertical-align:middle;}
+table.tbl tbody tr:hover{background:var(--blue-50);}
+table.tbl tbody tr:last-child td{border-bottom:none;}
+.tbl-empty{padding:38px 20px;text-align:center;color:#9fb2c4;font-size:13px;}
+.cell-note{max-width:250px;word-break:break-word;white-space:normal;}
+
+/* 通用下拉控件（工具栏内使用的 select） */
+select.sel-ctrl,.toolbar select,input.sel-ctrl{
+  padding:9px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:var(--white);color:var(--navy-800);font-size:13px;min-width:130px;
+  transition:.16s;cursor:pointer;
+}
+select.sel-ctrl:hover{border-color:var(--blue-400);}
+select.sel-ctrl:focus{border-color:var(--blue-500);box-shadow:0 0 0 3px rgba(47,125,196,.14);}
+select.sel-ctrl:disabled{background:#f5f8fb;color:#8ea3b5;cursor:not-allowed;}
+
+/* 标签 / 徽章 */
+.tag{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap;
+}
+.tag-blue{background:var(--blue-100);color:var(--navy-700);}
+.tag-ok{background:var(--ok-bg);color:var(--ok);}
+.tag-warn{background:var(--warn-bg);color:var(--warn);}
+.tag-danger{background:var(--danger-bg);color:var(--danger);}
+.tag-gray{background:#eef2f6;color:#697e91;}
+
+/* 花名册打卡方格 */
+.name-grid{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
+.name-chip{
+  display:flex;align-items:center;gap:9px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--white);
+  cursor:pointer;transition:.16s;user-select:none;
+}
+.name-chip:hover{border-color:var(--blue-400);box-shadow:0 2px 8px rgba(47,125,196,.14);}
+.name-chip .idx{
+  width:22px;height:22px;flex:0 0 22px;border-radius:6px;background:var(--blue-100);
+  color:var(--navy-600);font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.name-chip .nm{flex:1;font-size:13.5px;font-weight:500;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.name-chip .st{font-size:11px;font-weight:700;color:#a8b9c8;flex:0 0 auto;}
+.name-chip.done{background:var(--ok-bg);border-color:#a8ddc4;}
+.name-chip.done .idx{background:#1f8a5b;color:#fff;}
+.name-chip.done .st{color:var(--ok);}
+.name-chip.done .nm{color:#14603f;}
+
+/* 心情卡片 */
+.mood-card{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--white);
+  padding:15px 17px;box-shadow:var(--shadow);transition:.2s;
+}
+.mood-card:hover{box-shadow:var(--shadow-hover);}
+.mood-card.mine{border-left:4px solid var(--blue-500);}
+.mood-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.mood-top .mood-emo{font-size:20px;line-height:1;}
+.mood-top .nm{font-size:14px;font-weight:700;color:var(--navy-800);}
+.mood-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--txt-sub);margin-bottom:9px;}
+.mood-meta b{color:var(--navy-700);font-weight:600;}
+.mood-text{font-size:13px;color:var(--txt);line-height:1.75;word-break:break-word;}
+.mood-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px dashed var(--line);}
+
+/* 组队卡片 */
+.team-card{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--white);
+  padding:16px 18px;box-shadow:var(--shadow);transition:.2s;display:flex;flex-direction:column;
+}
+.team-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
+.team-card.full{opacity:.72;}
+.team-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:11px;}
+.team-top h4{font-size:15px;color:var(--navy-800);font-weight:700;display:flex;align-items:center;gap:7px;}
+.team-lines{display:grid;gap:7px;font-size:12.5px;color:var(--txt-sub);margin-bottom:12px;}
+.team-lines .ln{display:flex;gap:8px;}
+.team-lines .ln b{color:var(--navy-700);font-weight:600;flex:0 0 62px;}
+.team-lines .ln span{flex:1;word-break:break-word;color:var(--txt);}
+.team-foot{margin-top:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line);}
+
+/* 筛选按钮组 */
+.seg{display:inline-flex;gap:5px;background:var(--blue-100);padding:4px;border-radius:9px;flex-wrap:wrap;}
+.seg button{padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:600;color:var(--navy-700);transition:.16s;}
+.seg button.on{background:var(--white);color:var(--navy-800);box-shadow:0 1px 4px rgba(11,37,69,.14);}
+
+/* 器材库存卡 */
+.eq-card{
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--white);
+  padding:16px 17px;box-shadow:var(--shadow);transition:.2s;
+}
+.eq-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
+.eq-card h4{font-size:14px;color:var(--navy-800);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.eq-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:11px;}
+.eq-nums .n{
+  background:var(--blue-50);border-radius:var(--radius-sm);padding:9px 4px;
+}
+.eq-nums .n b{display:block;font-size:18px;font-weight:700;color:var(--navy-800);line-height:1.3;}
+.eq-nums .n span{font-size:10.5px;color:var(--txt-sub);}
+.eq-nums .n.total b{color:var(--navy-600);}
+.eq-nums .n.out b{color:var(--warn);}
+.eq-nums .n.avail b{color:var(--ok);}
+
+/* 心情选择器 */
+.mood-picker{display:flex;gap:8px;flex-wrap:wrap;}
+.mood-picker label{
+  flex:1;min-width:92px;border:1.5px solid var(--line);border-radius:10px;
+  padding:11px 8px;text-align:center;cursor:pointer;transition:.16s;background:var(--white);
+}
+.mood-picker label:hover{border-color:var(--blue-400);background:var(--blue-50);}
+.mood-picker label .em{font-size:22px;display:block;line-height:1.3;}
+.mood-picker label .tx{font-size:11.5px;color:var(--navy-700);font-weight:600;margin-top:3px;display:block;}
+.mood-picker input{display:none;}
+.mood-picker input:checked + label,
+.mood-picker label.on{border-color:var(--navy-600);background:var(--blue-100);box-shadow:0 2px 8px rgba(35,93,153,.16);}
+
+/* 等级条（压力/状态） */
+.range-wrap{display:flex;align-items:center;gap:12px;}
+.range-wrap input[type=range]{flex:1;accent-color:var(--navy-600);height:5px;}
+.range-wrap .rv{
+  min-width:52px;text-align:center;font-size:13px;font-weight:700;color:#fff;
+  background:var(--navy-600);border-radius:6px;padding:4px 0;
+}
+
+/* 模态框 */
+.modal-mask{
+  position:fixed;inset:0;z-index:9500;background:rgba(11,37,69,.5);
+  display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto;
+}
+.modal-mask.on{display:flex;}
+.modal{
+  background:var(--white);border-radius:14px;width:100%;max-width:560px;
+  box-shadow:0 24px 56px rgba(0,0,0,.32);max-height:92vh;display:flex;flex-direction:column;
+  animation:pop .2s ease;
+}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(8px);}to{opacity:1;transform:none;}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line);}
+.modal-head h3{font-size:15.5px;color:var(--navy-800);font-weight:700;}
+.modal-head .x{width:30px;height:30px;border-radius:8px;color:var(--txt-sub);font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;}
+.modal-head .x:hover{background:var(--blue-100);color:var(--navy-800);}
+.modal-body{padding:20px;overflow-y:auto;}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--line);flex-wrap:wrap;}
+
+/* 提示气泡 */
+#toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);z-index:9800;
+  background:var(--navy-900);color:#fff;padding:11px 22px;border-radius:99px;
+  font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.26s;
+  box-shadow:0 8px 24px rgba(11,37,69,.35);max-width:88vw;text-align:center;
+}
+#toast.on{opacity:1;transform:translate(-50%,0);}
+#toast.err{background:var(--danger);}
+#toast.ok{background:var(--ok);}
+
+/* 权限提示块 */
+.no-perm{
+  background:var(--white);border:1px dashed #c8d8e6;border-radius:var(--radius);
+  padding:44px 24px;text-align:center;color:var(--txt-sub);
+}
+.no-perm .big{font-size:34px;margin-bottom:12px;opacity:.5;}
+.no-perm h4{font-size:15px;color:var(--navy-800);margin-bottom:8px;font-weight:700;}
+.no-perm p{font-size:12.5px;line-height:1.8;}
+
+.side-mask{
+  display:none;position:fixed;inset:var(--header-h) 0 0 0;z-index:789;
+  background:rgba(11,37,69,.42);
+}
+.side-mask.on{display:block;}
+
+/* ============================================================
+   七、响应式：平板 / 手机
+   ============================================================ */
+@media (max-width:1180px){
+  .g-4{grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width:1024px){
+  /* 平板：导航折叠为抽屉菜单 */
+  .menu-btn{display:flex;}
+  .sidebar{transform:translateX(-100%);box-shadow:4px 0 24px rgba(11,37,69,.18);}
+  .sidebar.on{transform:none;}
+  .main{margin-left:0;padding:18px 16px 56px;}
+  .g-3{grid-template-columns:repeat(2,1fr);}
+  .form-row-3{grid-template-columns:1fr 1fr;}
+}
+@media (max-width:768px){
+  :root{--header-h:58px;}
+  .topbar{padding:0 12px;gap:9px;}
+  .topbar .emblem{width:33px;height:33px;flex:0 0 33px;font-size:13px;}
+  .topbar .titles h1{font-size:14px;letter-spacing:2px;}
+  .topbar .titles p{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52vw;}
+  .who-badge .who-txt{max-width:80px;}
+  .who-badge{padding:5px 10px;font-size:11.5px;}
+  .main{padding:14px 12px 50px;}
+  .page-head h2{font-size:17px;}
+  .page-head p{font-size:11.5px;padding-left:12px;}
+  .g-2,.g-3,.g-4{grid-template-columns:1fr;}
+  .form-row-2,.form-row-3{grid-template-columns:1fr;}
+  .card-head,.card-body{padding:14px;}
+  .card-pad{padding:14px;}
+  .stat .val{font-size:23px;}
+  .login-card{padding:28px 20px 22px;}
+  .login-brand h1{font-size:20px;letter-spacing:4px;}
+  .name-grid{grid-template-columns:repeat(auto-fill,minmax(126px,1fr));}
+  .mood-picker label{min-width:calc(50% - 4px);}
+  .modal{border-radius:12px;}
+  .modal-body,.modal-head,.modal-foot{padding-left:15px;padding-right:15px;}
+  table.tbl{font-size:12.5px;}
+  table.tbl thead th,table.tbl tbody td{padding:9px 10px;}
+}
+@media (max-width:480px){
+  .topbar .titles p{display:none;}
+  .stat{padding:14px;}
+  .eq-nums .n b{font-size:16px;}
+}
+/* 打印适配 */
+@media print{
+  .topbar,.sidebar,.menu-btn,.no-print{display:none!important;}
+  .main{margin:0;padding:0;}
+  .card{box-shadow:none;border-color:#ccc;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     登录层：模拟身份切换（管理员 / 普通班级用户）
+     ============================================================ -->
+<div id="loginLayer">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="emblem">跃动</div>
+      <h1>跃动青春 育心强体</h1>
+      <h2>信阳师范大学教育科学学院<br>运动打卡与心理状态管理工作台</h2>
+    </div>
+
+    <div class="login-tabs">
+      <button id="tabAdmin" class="on" onclick="LoginUI.switchTab('admin')">管理员登录</button>
+      <button id="tabUser" onclick="LoginUI.switchTab('user')">班级用户登录</button>
+    </div>
+
+    <!-- 管理员 -->
+    <div id="paneAdmin">
+      <div class="field">
+        <label>管理员账号</label>
+        <input id="adminAcc" type="text" value="admin" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>管理员口令</label>
+        <input id="adminPwd" type="password" placeholder="默认口令：admin888" autocomplete="off">
+        <div class="hint">默认账号 admin / 口令 admin888，可在代码 ADMIN_PASSWORD 中修改。</div>
+      </div>
+      <div id="adminErr" class="alert alert-warn" style="display:none"></div>
+      <button class="btn btn-primary btn-block mt16" onclick="LoginUI.doAdmin()">进入管理工作台</button>
+    </div>
+
+    <!-- 班级用户 -->
+    <div id="paneUser" style="display:none">
+      <div class="field">
+        <label>选择年级</label>
+        <select id="loginGrade" onchange="LoginUI.fillClasses()"></select>
+      </div>
+      <div class="field">
+        <label>选择所属班级</label>
+        <select id="loginClass"></select>
+      </div>
+      <div class="field">
+        <label>本人姓名</label>
+        <input id="loginName" type="text" placeholder="请输入真实姓名，用于心情记录归属" autocomplete="off">
+        <div class="hint">姓名将作为你在系统中的身份标识；心情记录仅本人与管理员可见。</div>
+      </div>
+      <div id="userErr" class="alert alert-warn" style="display:none"></div>
+      <button class="btn btn-primary btn-block mt16" onclick="LoginUI.doUser()">进入班级工作台</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     主应用
+     ============================================================ -->
+<div id="app">
+
+  <!-- 顶部固定标题栏 -->
+  <header class="topbar">
+    <button class="menu-btn" onclick="App.toggleSide()" aria-label="菜单"><span></span><span></span><span></span></button>
+    <div class="brand">
+      <div class="emblem">跃动</div>
+      <div class="titles">
+        <h1>跃动青春 育心强体</h1>
+        <p>信阳师范大学教育科学学院运动打卡与心理状态管理工作台</p >
+      </div>
+    </div>
+    <div class="who">
+      <div class="who-badge"><span class="dot"></span><span class="who-txt" id="whoTxt">—</span></div>
+    </div>
+  </header>
+
+  <!-- 侧边导航 -->
+  <aside class="sidebar" id="sidebar">
+    <div class="nav-group">
+      <div class="nav-group-title">总览</div>
+      <button class="nav-item on" data-page="dash" onclick="App.go('dash')"><span class="ico">台</span>数据仪表盘</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">名单与台账</div>
+      <button class="nav-item" data-page="roster" onclick="App.go('roster')"><span class="ico">册</span>班级名单导入</button>
+      <button class="nav-item" data-page="checkin" onclick="App.go('checkin')"><span class="ico">勤</span>运动打卡台账</button>
+      <button class="nav-item" data-page="activity" onclick="App.go('activity')"><span class="ico">活</span>体育活动记录</button>
+      <button class="nav-item" data-page="mood" onclick="App.go('mood')"><span class="ico">心</span>运动心情记录</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">服务</div>
+      <button class="nav-item" data-page="team" onclick="App.go('team')"><span class="ico">队</span>运动组队平台</button>
+      <button class="nav-item" data-page="equip" onclick="App.go('equip')"><span class="ico">器</span>器材柜借用登记</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">账号</div>
+      <button class="nav-item" data-page="account" onclick="App.go('account')"><span class="ico">身</span>身份切换</button>
+    </div>
+    <div class="sidebar-foot">
+      © 信阳师范大学教育科学学院<br>
+      数据仅存于本机浏览器 · 无需服务器
+    </div>
+  </aside>
+  <div class="side-mask" id="sideMask" onclick="App.toggleSide(false)"></div>
+
+  <!-- 主内容区 -->
+  <main class="main">
+
+    <!-- ========== 模块七：数据仪表盘 ========== -->
+    <section class="page on" id="page-dash">
+      <div class="page-head">
+        <h2>数据仪表盘</h2>
+        <p id="dashScopeTip">—</p >
+      </div>
+      <div id="dashBody"></div>
+    </section>
+
+    <!-- ========== 模块一：班级名单导入 ========== -->
+    <section class="page" id="page-roster">
+      <div class="page-head">
+        <h2>各班独立学生名单导入</h2>
+        <p>每个班级单独维护花名册，支持批量粘贴导入；班级之间数据完全独立。</p >
+      </div>
+      <div id="rosterBody"></div>
+    </section>
+
+    <!-- ========== 模块二：运动打卡台账 ========== -->
+    <section class="page" id="page-checkin">
+      <div class="page-head">
+        <h2>日常运动打卡台账</h2>
+        <p>按年级、班级切换查看打卡记录；点击学生卡片即可标记打卡 / 未打卡。</p >
+      </div>
+      <div id="checkinBody"></div>
+    </section>
+
+    <!-- ========== 模块三：体育活动记录 ========== -->
+    <section class="page" id="page-activity">
+      <div class="page-head">
+        <h2>体育活动开展记录台账</h2>
+        <p>录入学院各项体育活动信息，自动生成学院体育工作记录台账。</p >
+      </div>
+      <div id="activityBody"></div>
+    </section>
+
+    <!-- ========== 模块四：运动心情记录 ========== -->
+    <section class="page" id="page-mood">
+      <div class="page-head">
+        <h2>运动心情与心理状态记录</h2>
+        <p id="moodScopeTip">—</p >
+      </div>
+      <div id="moodBody"></div>
+    </section>
+
+    <!-- ========== 模块五：运动组队平台 ========== -->
+    <section class="page" id="page-team">
+      <div class="page-head">
+        <h2>校园运动自由组队匹配</h2>
+        <p>发布羽毛球／乒乓球／排球约球帖子，按球类筛选，寻找运动伙伴。</p >
+      </div>
+      <div id="teamBody"></div>
+    </section>
+
+    <!-- ========== 模块六：器材柜借用登记 ========== -->
+    <section class="page" id="page-equip">
+      <div class="page-head">
+        <h2>学院器材柜借用登记</h2>
+        <p>器材借用 / 归还登记，库存实时展示，借出记录全程可追溯。</p >
+      </div>
+      <div id="equipBody"></div>
+    </section>
+
+    <!-- ========== 身份切换 ========== -->
+    <section class="page" id="page-account">
+      <div class="page-head">
+        <h2>身份切换</h2>
+        <p>当前身份信息、权限说明与账号切换（登录状态保存在本机浏览器）。</p >
+      </div>
+      <div id="accountBody"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 通用模态框 -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal" id="modalBox">
+    <div class="modal-head">
+      <h3 id="modalTitle">标题</h3>
+      <button class="x" onclick="UI.closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================================
+ * 跃动青春 育心强体 · 运动打卡与心理状态管理工作台
+ * 纯前端单文件应用 —— 全部数据存放于 localStorage
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * 【1】基础配置区（可按需修改）
+ * ------------------------------------------------------------------------- */
+
+/** 管理员口令（可自行修改） */
+const ADMIN_PASSWORD = 'admin888';
+/** 管理员账号显示名 */
+const ADMIN_ACCOUNT  = 'admin';
+
+/** 固定班级架构：年级 → 班级列表 */
+const GRADE_CONFIG = {
+  '23级': ['教育学','教育技术学','心理学一班','心理学二班','学前一班','学前二班','学前三班'],
+  '24级': ['教育学','教育技术学','心理学一班','心理学二班','学前一班','学前二班','学前三班'],
+  '25级': ['教育学','教育技术学','心理学','学前教育学'],
+  '26级': ['教育学','教育技术学','心理学','学前教育学']
+};
+
+/** 默认器材清单（可自行增删） */
+const DEFAULT_EQUIPMENTS = [
+  { name:'羽毛球拍', total:32 },
+  { name:'羽毛球',   total:60 },
+  { name:'乒乓球拍', total:32 },
+  { name:'乒乓球',   total:80 },
+  { name:'排球',     total:20 }
+];
+
+/** 组队平台运动项目 */
+const SPORTS = ['羽毛球','乒乓球','排球'];
+
+/** 心情标签选项 */
+const MOOD_OPTIONS = [
+  { key:'愉悦', emoji:'😄', label:'愉悦舒畅' },
+  { key:'轻松', emoji:'🙂', label:'轻松平静' },
+  { key:'一般', emoji:'😐', label:'一般无感' },
+  { key:'疲惫', emoji:'😮‍💨', label:'疲惫乏力' },
+  { key:'低落', emoji:'😔', label:'低落烦躁' }
+];
+
+/** 本地存储键名 */
+const LS_KEYS = {
+  session : 'ydqc_session_v1',   // 登录状态
+  data    : 'ydqc_data_v1'       // 全部业务数据
+};
+
+/* ---------------------------------------------------------------------------
+ * 【2】数据层：本地存储读写 + 状态
+ * ------------------------------------------------------------------------- */
+const Store = {
+  /** 内存中的数据镜像 */
+  db: null,
+
+  /** 生成默认空数据结构 */
+  blank(){
+    return {
+      rosters   : {},   // { '班级唯一键': ['姓名', ...] }
+      checkins  : {},   // { '日期|班级唯一键': { '姓名': true } }
+      activities: [],   // 体育活动记录
+      moods     : [],   // 心情记录
+      teams     : [],   // 组队帖
+      equipments: [],   // 器材种类
+      loans     : [],   // 借用记录
+      seq       : 1     // 自增 ID
+    };
+  },
+
+  /** 从 localStorage 载入 */
+  load(){
+    let raw = null;
+    try { raw = localStorage.getItem(LS_KEYS.data); } catch(e){ raw = null; }
+    if(!raw){ this.db = this.blank(); }
+    else {
+      try {
+        const parsed = JSON.parse(raw);
+        this.db = Object.assign(this.blank(), parsed);
+      } catch(e){ this.db = this.blank(); }
+    }
+    // 首次使用：初始化默认器材
+    if(!this.db.equipments || !this.db.equipments.length){
+      this.db.equipments = DEFAULT_EQUIPMENTS.map(e=>({
+        id:this.nextId(), name:e.name, total:e.total, builtin:true
+      }));
+      this.save();
+    }
+  },
+
+  /** 持久化 */
+  save(){
+    try { localStorage.setItem(LS_KEYS.data, JSON.stringify(this.db)); }
+    catch(e){ UI.toast('本地存储写入失败，请检查浏览器隐私模式设置', 'err'); }
+  },
+
+  /** 自增 ID */
+  nextId(){ return this.db.seq++; }
+};
+
+const Session = {
+  user: null,
+  load(){
+    try {
+      const raw = localStorage.getItem(LS_KEYS.session);
+      this.user = raw ? JSON.parse(raw) : null;
+    } catch(e){ this.user = null; }
+    return this.user;
+  },
+  set(u){ this.user = u; localStorage.setItem(LS_KEYS.session, JSON.stringify(u)); },
+  clear(){ this.user = null; localStorage.removeItem(LS_KEYS.session); },
+  isAdmin(){ return !!this.user && this.user.role === 'admin'; },
+  isUser(){ return !!this.user && this.user.role === 'user'; }
+};
+
+/** 班级唯一键（年级+班级，如 23级·教育学） */
+function clsKey(grade, cls){ return grade + '·' + cls; }
+/** 把唯一键拆回 {grade, cls} */
+function splitKey(k){
+  const i = k.indexOf('·');
+  return { grade:k.slice(0,i), cls:k.slice(i+1) };
+}
+/** 展开全部班级为数组 */
+function allClasses(){
+  const out = [];
+  Object.keys(GRADE_CONFIG).forEach(g=>{
+    GRADE_CONFIG[g].forEach(c=>out.push({ grade:g, cls:c, key:clsKey(g,c) }));
+  });
+  return out;
+}
+
+/* ---------------------------------------------------------------------------
+  * 【3】权限控制层：所有数据访问统一从这里取，确保越权访问被拦截
+ * ------------------------------------------------------------------------- */
+const Perm = {
+  /** 当前用户是否有管理员权限 */
+  admin(){ return Session.isAdmin(); },
+
+  /** 当前用户可访问的班级唯一键列表 */
+  scopeKeys(){
+    if(this.admin()) return allClasses().map(c=>c.key);
+    if(Session.isUser()) return [Session.user.clsKey];
+    return [];
+  },
+
+  /** 是否允许访问某个班级（年级必须匹配，班级名必须匹配） */
+  canAccessClass(grade, cls){
+    if(this.admin()) return true;
+    if(!Session.isUser()) return false;
+    const target = splitKey(Session.user.clsKey);
+    return target.grade === grade && target.cls === cls;
+  },
+
+  /** 是否允许访问某个班级唯一键 */
+  canAccessKey(key){
+    if(this.admin()) return true;
+    return Session.isUser() && Session.user.clsKey === key;
+  },
+
+  /** 心情记录可见性：管理员看全部；普通用户仅本人 */
+  canSeeMood(m){
+    if(this.admin()) return true;
+    if(!Session.isUser()) return false;
+    return m.author === Session.user.name && m.clsKey === Session.user.clsKey;
+  },
+
+  /** 心情记录可编辑性（作者本人或管理员） */
+  canEditMood(m){ return this.admin() || (Session.isUser() && m.author===Session.user.name && m.clsKey===Session.user.clsKey); },
+
+  /** 组队帖可删除性（发布者本人或管理员） */
+  canDeleteTeam(t){ return this.admin() || (Session.isUser() && t.author===Session.user.name); },
+
+  /** 取当前用户姓名（组队/借用/心情默认值） */
+  me(){ return Session.user ? Session.user.name : '—'; },
+  myClsKey(){ return Session.user ? session_clsKeySafe() : ''; }
+};
+function session_clsKeySafe(){
+  if(Session.isUser()) return Session.user.clsKey;
+  return '';
+}
+
+/* ---------------------------------------------------------------------------
+ * 【4】通用 UI 工具
+ * ------------------------------------------------------------------------- */
+const UI = {
+  /** 轻提示 */
+  toast(msg, type){
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'on' + (type ? ' ' + type : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(()=>{ el.className = ''; }, 2200);
+  },
+
+  /** 打开模态框 */
+  openModal(title, bodyHtml, footHtml){
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = bodyHtml;
+    document.getElementById('modalFoot').innerHTML = footHtml || '';
+    document.getElementById('modalMask').classList.add('on');
+    document.body.style.overflow = 'hidden';
+  },
+  closeModal(){
+    document.getElementById('modalMask').classList.remove('on');
+    document.body.style.overflow = '';
+  },
+
+  /** HTML 转义，防止姓名等输入破坏页面结构 */
+  esc(s){
+    return String(s==null?'':s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  },
+
+  /** 今天 YYYY-MM-DD */
+  today(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  },
+  /** 现在 YYYY-MM-DD HH:mm */
+  now(){
+    const d = new Date();
+    return this.today() + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  },
+  /** 时间戳 → 可读文本 */
+  fmt(ts){
+    if(!ts) return '—';
+    const d = new Date(ts);
+    const p = n => String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+  },
+
+  /** 进度条 HTML；pct 0~100 */
+  bar(pct, cls){
+    const c = cls || (pct>=80?'ok':pct>=50?'mid':'low');
+    return '<div class="bar '+c+'"><i style="width:'+Math.max(0,Math.min(100,pct))+'%"></i></div>';
+  },
+
+  /** 统计卡 */
+  stat(label, value, tip, accent, unit){
+    return '<div class="stat'+(accent?' accent':'')+'">'+
+      '<div class="lab">'+label+'</div>'+
+      '<div class="val">'+value+(unit?'<small>'+unit+'</small>':'')+'</div>'+
+      (tip?'<div class="tip">'+tip+'</div>':'')+
+    '</div>';
+  },
+
+  /** 空状态 */
+  empty(text){
+    return '<div class="tbl-empty">'+text+'</div>';
+  },
+
+  /** 无权限提示块 */
+  noPerm(title, desc){
+    return '<div class="card"><div class="no-perm">'+
+      '<div class="big">🔒</div>'+
+      '<h4>'+title+'</h4>'+
+      '<p>'+desc+'</p >'+
+    '</div></div>';
+  },
+
+  /** 班级下拉选项：管理员可选全部；普通用户锁定本班 */
+  classOptions(selectedKey){
+    const list = Perm.admin()
+      ? allClasses()
+      : allClasses().filter(c=>c.key===Session.user.clsKey);
+    return list.map(c=>
+      '<option value="'+c.key+'"'+(c.key===selectedKey?' selected':'')+'>'+c.key+'</option>'
+    ).join('');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+ * 【5】登录界面逻辑
+ * ------------------------------------------------------------------------- */
+const LoginUI = {
+  tab: 'admin',
+
+  init(){
+    // 填充年级下拉
+    const g = document.getElementById('loginGrade');
+    g.innerHTML = Object.keys(GRADE_CONFIG).map(k=>'<option value="'+k+'">'+k+'</option>').join('');
+    this.fillClasses();
+  },
+
+  switchTab(t){
+    this.tab = t;
+    document.getElementById('tabAdmin').classList.toggle('on', t==='admin');
+    document.getElementById('tabUser').classList.toggle('on', t==='user');
+    document.getElementById('paneAdmin').style.display = t==='admin' ? '' : 'none';
+    document.getElementById('paneUser').style.display  = t==='user'  ? '' : 'none';
+    document.getElementById('adminErr').style.display = 'none';
+    document.getElementById('userErr').style.display  = 'none';
+  },
+
+  /** 根据所选年级刷新班级下拉 */
+  fillClasses(){
+    const g = document.getElementById('loginGrade').value;
+    const list = GRADE_CONFIG[g] || [];
+    document.getElementById('loginClass').innerHTML =
+      list.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+  },
+
+  err(id, msg){
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.style.display = msg ? '' : 'none';
+  },
+
+  doAdmin(){
+    const acc = document.getElementById('adminAcc').value.trim();
+    const pwd = document.getElementById('adminPwd').value;
+    if(!acc){ return this.err('adminErr','请输入管理员账号'); }
+    if(!pwd){ return this.err('adminErr','请输入管理员口令'); }
+    if(acc !== ADMIN_ACCOUNT || pwd !== ADMIN_PASSWORD){
+      return this.err('adminErr','账号或口令不正确，请重新输入');
+    }
+    Session.set({ role:'admin', name:'管理员', clsKey:'', cls:'', grade:'', loginAt:Date.now() });
+    this.enter();
+  },
+
+  doUser(){
+    const grade = document.getElementById('loginGrade').value;
+    const cls   = document.getElementById('loginClass').value;
+    const name  = document.getElementById('loginName').value.trim();
+    if(!grade || !cls){ return this.err('userErr','请选择年级与班级'); }
+    if(!name){ return this.err('userErr','请输入本人姓名'); }
+    if(name.length > 20){ return this.err('userErr','姓名长度请控制在 20 字以内'); }
+    Session.set({
+      role:'user', name:name, grade:grade, cls:cls,
+      clsKey: clsKey(grade, cls), loginAt:Date.now()
+    });
+    this.enter();
+  },
+
+  /** 登录成功 → 进入应用 */
+  enter(){
+    document.getElementById('loginLayer').style.display = 'none';
+    document.getElementById('app').classList.add('on');
+    App.boot();
+  }
+};
+  /* ---------------------------------------------------------------------------
+ * 【6】应用主控
+ * ------------------------------------------------------------------------- */
+const App = {
+  page: 'dash',
+
+  boot(){
+    Store.load();
+    this.renderWho();
+    this.go(this.page || 'dash');
+  },
+
+  /** 顶部身份标识 */
+  renderWho(){
+    const u = Session.user;
+    let txt = '未登录';
+    if(u && u.role === 'admin') txt = '管理员 · 全院权限';
+    else if(u && u.role === 'user') txt = u.name + ' · ' + u.clsKey;
+    document.getElementById('whoTxt').textContent = txt;
+  },
+
+  /** 切换页面 */
+  go(page){
+    // 权限闸门：普通用户禁止访问班级名单导入的全部班级视角（页面内再细分）
+    this.page = page;
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+    const target = document.getElementById('page-' + page);
+    if(target) target.classList.add('on');
+
+    document.querySelectorAll('.nav-item').forEach(b=>{
+      b.classList.toggle('on', b.dataset.page === page);
+    });
+
+    // 移动端点击导航后收起抽屉
+    if(window.innerWidth <= 1024) this.toggleSide(false);
+
+    // 渲染各模块
+    const R = {
+      dash    : ()=>Dash.render(),
+      roster  : ()=>Roster.render(),
+      checkin : ()=>Checkin.render(),
+      activity: ()=>Activity.render(),
+      mood    : ()=>Mood.render(),
+      team    : ()=>Team.render(),
+      equip   : ()=>Equip.render(),
+      account : ()=>Account.render()
+    };
+    if(R[page]) R[page]();
+    window.scrollTo({ top:0, behavior:'instant' in window ? 'instant' : 'auto' });
+  },
+
+  /** 移动端侧边栏开关 */
+  toggleSide(force){
+    const sb = document.getElementById('sidebar');
+    const mk = document.getElementById('sideMask');
+    const on = (force === undefined) ? !sb.classList.contains('on') : force;
+    sb.classList.toggle('on', on);
+    mk.classList.toggle('on', on);
+  },
+
+  /** 重新渲染当前页 */
+  refresh(){ this.go(this.page); },
+
+  /** 退出登录 */
+  logout(){
+    UI.openModal('退出登录', '<p style="font-size:13.5px;line-height:1.9">确定要退出当前身份吗？<br>本机数据不会被删除，下次登录仍可继续使用。</p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-primary" onclick="App.doLogout()">确认退出</button>');
+  },
+  doLogout(){
+    Session.clear();
+    UI.closeModal();
+    document.getElementById('app').classList.remove('on');
+    document.getElementById('loginLayer').style.display = 'flex';
+    document.getElementById('adminPwd').value = '';
+    document.getElementById('loginName').value = '';
+    LoginUI.err('adminErr',''); LoginUI.err('userErr','');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+ * 【7】模块一 + 模块二：名单导入 & 打卡台账 的共用班级统计
+ * ------------------------------------------------------------------------- */
+/* 打卡数据以「日期 + 班级」为一条记录：
+   db.checkins['YYYY-MM-DD|23级·教育学'] = { '张三':true, '李四':true } */
+
+const CheckinData = {
+  /** 取某班某日的打卡映射 */
+  get(date, key){
+    const k = date + '|' + key;
+    if(!Store.db.checkins[k]) Store.db.checkins[k] = {};
+    return Store.db.checkins[k];
+  },
+  /** 取某班某日打卡人数 */
+  count(date, key){
+    const m = Store.db.checkins[date + '|' + key] || {};
+    const roster = Store.db.rosters[key] || [];
+    let n = 0;
+    roster.forEach(nm=>{ if(m[nm]) n++; });
+    return n;
+  },
+  /** 某班某日统计：总人数 / 已打卡 / 未打卡 / 打卡率 */
+  stats(date, key){
+    const roster = Store.db.rosters[key] || [];
+    const total = roster.length;
+    const done  = this.count(date, key);
+    const rate  = total ? Math.round(done / total * 1000) / 10 : 0;
+    return { total, done, undone: total - done, rate };
+  },
+  /** 切换某学生打卡状态 */
+  toggle(date, key, name){
+    const m = this.get(date, key);
+    m[name] = !m[name];
+    Store.save();
+  },
+  /** 全体标记 */
+  markAll(date, key, val){
+    const m = this.get(date, key);
+    (Store.db.rosters[key] || []).forEach(nm=>{ m[nm] = val; });
+    Store.save();
+  },
+  /** 清空某班某日打卡 */
+  clearDay(date, key){
+    Store.db.checkins[date + '|' + key] = {};
+    Store.save();
+  }
+};
+
+/* ---------------------------------------------------------------------------
+ * 【8】模块七：仪表盘
+ * ------------------------------------------------------------------------- */
+const Dash = {
+  render(){
+    const today = UI.today();
+    const scope = Perm.scopeKeys();
+    const tip = document.getElementById('dashScopeTip');
+
+    if(Perm.admin()){
+      tip.textContent = '管理员视角：全院 4 个年级、22 个班级的运动打卡与心理工作总览。';
+    } else {
+      tip.textContent = '班级用户视角：仅展示本班（' + Session.user.clsKey + '）统计数据，其他班级数据已隐藏。';
+    }
+
+    // ---- 汇总计算（严格按权限范围）----
+    let totalStu = 0, doneStu = 0, clsWithRoster = 0;
+    const perClass = [];
+    scope.forEach(key=>{
+      const s = CheckinData.stats(today, key);
+      totalStu += s.total;
+      doneStu  += s.done;
+      if(s.total > 0) clsWithRoster++;
+      perClass.push({ key:key, ...s });
+    });
+    const overallRate = totalStu ? Math.round(doneStu/totalStu*1000)/10 : 0;
+
+    // 器材汇总
+    let eqTotal = 0, eqOut = 0;
+    Store.db.equipments.forEach(e=>{
+      eqTotal += e.total;
+      eqOut   += Equip.outCount(e.id);
+    });
+
+    // 心情 & 组队（按权限过滤）
+    const moods = Store.db.moods.filter(m=>Perm.canSeeMood(m));
+    const teams = Store.db.teams.slice();
+    // ---- 统计卡片 ----
+    let html = '<div class="grid g-4 mb16">';
+    html += UI.stat(Perm.admin()?'全院学生总数':'本班学生总数', totalStu, '来自 '+scope.length+' 个班级花名册', true, '人');
+    html += UI.stat('今日已打卡', doneStu, '未打卡 ' + (totalStu - doneStu) + ' 人');
+    html += UI.stat('今日整体打卡率', overallRate, overallRate>=80?'表现优秀':overallRate>=50?'有待提升':'需重点关注', false, '%');
+    html += UI.stat(Perm.admin()?'已建档班级':'本班建档状态', Perm.admin()? clsWithRoster : (clsWithRoster?'已建档':'未导入名单'), Perm.admin()? '共 '+scope.length+' 个班级' : '请前往「班级名单导入」', false, Perm.admin()?'个':'');
+    html += '</div>';
+
+    // ---- 今日打卡进度条 ----
+    html += '<div class="card mb16"><div class="card-head"><div><h3>今日打卡完成度</h3><div class="sub">' + today + ' · 实时统计</div></div>';
+    html += '<span class="tag ' + (overallRate>=80?'tag-ok':overallRate>=50?'tag-warn':'tag-danger') + '">' + overallRate + '%</span></div>';
+    html += '<div class="card-body"><div class="bar-row">' + UI.bar(overallRate) + '<span class="pct">' + overallRate + '%</span></div>';
+    html += '<div class="grid g-3 mt16">';
+    html += UI.stat('应打卡人数', totalStu, '花名册合计数');
+    html += UI.stat('已完成打卡', doneStu, '点击「运动打卡台账」维护');
+    html += UI.stat('尚未打卡', totalStu - doneStu, '请及时督促');
+    html += '</div></div></div>';
+
+    // ---- 双列：各班打卡率 / 其他概览 ----
+    html += '<div class="grid g-2 mb16">';
+
+    // 各班打卡率
+    html += '<div class="card"><div class="card-head"><div><h3>各班今日打卡率</h3><div class="sub">' + (Perm.admin()?'全院各班排名':'本班数据') + '</div></div></div><div class="card-body">';
+    const sorted = perClass.slice().sort((a,b)=>b.rate - a.rate);
+    if(!sorted.length){
+      html += UI.empty('暂无可统计数据');
+    } else {
+      sorted.forEach(c=>{
+        html += '<div style="margin-bottom:13px">';
+        html += '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px">';
+        html += '<b style="color:var(--navy-800);font-weight:600">' + c.key + '</b>';
+        html += '<span style="color:var(--txt-sub)">' + c.done + '/' + c.total + ' 人 · <b style="color:var(--navy-700)">' + c.rate + '%</b></span>';
+        html += '</div>' + UI.bar(c.rate) + '</div>';
+      });
+    }
+    html += '</div></div>';
+
+    // 其他概览
+    html += '<div class="card"><div class="card-head"><div><h3>工作台概览</h3><div class="sub">' + (Perm.admin()?'全院数据':'本班及个人数据') + '</div></div></div><div class="card-body">';
+    html += '<div class="grid g-2" style="gap:12px">';
+    html += UI.stat('体育活动记录', Store.db.activities.length, '条台账记录', false, '条');
+    html += UI.stat('器材库存总量', eqTotal, '已借出 ' + eqOut + ' 件', false, '件');
+    html += UI.stat(Perm.admin()?'心情记录总数':'我的心情记录', moods.length, Perm.admin()?'全院可见':'仅本人可见', false, '条');
+    html += UI.stat('组队招募帖', teams.length, '全校共享可见', false, '条');
+    html += '</div>';
+    html += '<div class="alert alert-info mt16" style="margin-bottom:0">数据全部保存在本机浏览器 localStorage 中，刷新或关闭页面均不会丢失。</div>';
+    html += '</div></div>';
+
+    html += '</div>';
+
+    // ---- 最近动态 ----
+    html += '<div class="grid g-2">';
+    // 最近活动
+    html += '<div class="card"><div class="card-head"><div><h3>最近体育活动</h3></div></div><div class="card-body">';
+    const acts = Store.db.activities.slice().sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
+    if(!acts.length){ html += UI.empty('暂无活动记录'); }
+    else {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>活动名称</th><th>开展时间</th><th>参与人数</th></tr></thead><tbody>';
+      acts.forEach(a=>{
+        html += '<tr><td><b>' + UI.esc(a.name) + '</b></td><td>' + UI.esc(a.date) + '</td><td>' + a.people + ' 人</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div></div>';
+
+    // 最近组队
+    html += '<div class="card"><div class="card-head"><div><h3>最新组队招募</h3></div></div><div class="card-body">';
+    const tms = teams.slice().sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
+    if(!tms.length){ html += UI.empty('暂无组队信息'); }
+    else {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>项目</th><th>活动时间</th><th>发布人</th><th>剩余位置</th></tr></thead><tbody>';
+      tms.forEach(t=>{
+        const left = Math.max(0, t.need - t.joined);
+        html += '<tr><td><span class="tag tag-blue">' + UI.esc(t.sport) + '</span></td><td>' + UI.esc(t.time) + '</td><td>' + UI.esc(t.author) + '</td><td>' + (left>0?'<span class="tag tag-ok">'+left+' 个</span>':'<span class="tag tag-gray">已满</span>') + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div></div>';
+    html += '</div>';
+
+    document.getElementById('dashBody').innerHTML = html;
+  }
+};
+
+/* ---------------------------------------------------------------------------
+ * 【9】模块一：班级名单导入
+ * ------------------------------------------------------------------------- */
+const Roster = {
+  curKey: null,
+
+  defaultKey(){
+    if(Perm.admin()) return allClasses()[0].key;
+    return Session.user.clsKey;
+  },
+
+  render(){
+    // 普通用户只能管理本班
+    const box = document.getElementById('rosterBody');
+    if(!Perm.admin() && !Session.isUser()){
+      box.innerHTML = UI.noPerm('无法访问','请先登录后再使用本功能。');
+      return;
+    }
+    if(!this.curKey || !Perm.canAccessKey(this.curKey)) this.curKey = this.defaultKey();
+
+    const key = this.curKey;
+    const roster = Store.db.rosters[key] || [];
+    const s = CheckinData.stats(UI.today(), key);
+
+    let html = '';
+
+    // 权限说明
+    html += Perm.admin()
+      ? '<div class="alert alert-info">管理员视角：可在下方切换任意年级与班级，逐班维护花名册。各班级数据相互独立。</div>'
+      : '<div class="alert alert-info">班级用户视角：仅可管理本班（<b>' + UI.esc(key) + '</b>）花名册，其他班级名单不予展示。</div>';
+
+    // 操作区
+    html += '<div class="card mb16"><div class="card-head">';
+    html += '<div><h3>选择班级</h3><div class="sub">' + (Perm.admin()?'全院 22 个班级可自由切换':'已锁定本班') + '</div></div>';
+    // 班级下拉：管理员可切换全部班级；普通用户下拉中仅有本班且被锁定
+    html += '<select id="rosterSel" onchange="Roster.switchClass(this.value)"' + (Perm.admin() ? '' : ' disabled title="班级用户已锁定本班"') + '>';
+    html += UI.classOptions(key);
+    html += '</select>';
+    html += '<button class="btn btn-primary btn-sm" onclick="Roster.openImport()">批量导入名单</button>';
+    html += '<button class="btn btn-line btn-sm" onclick="Roster.addOne()">新增单个学生</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="Roster.clearRoster()">清空本班名单</button>';
+    html += '</div></div>';
+
+    // 统计卡
+    html += '<div class="card-body" style="border-top:1px solid var(--line)"><div class="grid g-4">';
+    html += UI.stat('班级花名册人数', roster.length, key, true, '人');
+    html += UI.stat('今日已打卡', s.done, '打卡率 ' + s.rate + '%');
+    html += UI.stat('今日未打卡', s.undone, s.undone>0?'待跟进':'全部完成');
+    html += UI.stat('名单状态', roster.length?'已建档':'待导入', roster.length?'可正常统计打卡':'请先导入学生名单');
+    html += '</div></div></div>';
+
+    // 花名册列表
+    html += '<div class="card"><div class="card-head"><div><h3>班级花名册 · ' + UI.esc(key) + '</h3><div class="sub">共 ' + roster.length + ' 名学生（按导入顺序）</div></div>';
+    html += '<span class="tag tag-blue">' + UI.esc(key) + '</span></div><div class="card-body">';
+    if(!roster.length){
+      html += UI.empty('暂无学生名单，请点击上方「批量导入名单」粘贴学生姓名');
+    } else {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:70px">序号</th><th>姓名</th><th style="width:110px">今日打卡</th><th style="width:110px">操作</th></tr></thead><tbody>';
+      roster.forEach((nm, i)=>{
+        const done = !!(Store.db.checkins[UI.today()+'|'+key] || {})[nm];
+        html += '<tr><td>' + (i+1) + '</td><td><b>' + UI.esc(nm) + '</b></td>';
+        html += '<td>' + (done?'<span class="tag tag-ok">已打卡</span>':'<span class="tag tag-gray">未打卡</span>') + '</td>';
+        html += '<td><button class="btn btn-danger btn-sm" onclick="Roster.delOne(' + i + ')">删除</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div></div>';
+
+    box.innerHTML = html;
+  },
+
+  switchClass(key){
+    if(!Perm.canAccessKey(key)){
+      UI.toast('无权访问该班级名单','err');
+      return;
+    }
+    this.curKey = key;
+    this.render();
+  },
+
+  /** 批量导入：一行一个姓名，也支持逗号/顿号/空格分隔 */
+  openImport(){
+    const key = this.curKey;
+    if(!Perm.canAccessKey(key)){ UI.toast('无权操作该班级','err'); return; }
+    UI.openModal('批量导入学生名单 · ' + key,
+      '<div class="field"><label>粘贴学生姓名</label>'+
+      '<textarea id="impText" rows="10" placeholder="张三&#10;李四&#10;王五&#10;&#10;也支持：张三,李四、王五 空格分隔"></textarea>'+
+      '<div class="hint">每行一个姓名，或使用逗号、顿号、空格分隔；系统会自动去重，并在导入后覆盖本班原名单。</div></div>'+
+      '<div class="field"><label style="display:flex;align-items:center;gap:8px;font-weight:500">'+
+      '<input type="checkbox" id="impAppend" style="width:auto"> 追加到现有名单（不勾选则覆盖）</label></div>',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-primary" onclick="Roster.doImport()">确认导入</button>');
+  },
+
+  doImport(){
+    const key = this.curKey;
+    const raw = document.getElementById('impText').value;
+    const append = document.getElementById('impAppend').checked;
+
+    // 支持换行、中英文逗号、顿号、分号、空格、制表符分隔
+    const names = raw.split(/[\n\r,，、;；\t ]+/)
+      .map(s=>s.trim())
+      .filter(s=>s.length > 0 && s.length <= 20);
+
+    if(!names.length){ UI.toast('未识别到有效的学生姓名','err'); return; }
+
+    const old = append ? (Store.db.rosters[key] || []).slice() : [];
+    const merged = old.slice();
+    let added = 0, dup = 0;
+    names.forEach(nm=>{
+      if(merged.indexOf(nm) === -1){ merged.push(nm); added++; }
+      else dup++;
+    });
+
+    Store.db.rosters[key] = merged;
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('导入成功：新增 ' + added + ' 人' + (dup? '，自动去重 ' + dup + ' 人':'') , 'ok');
+  },
+
+  /** 新增单个学生 */
+  addOne(){
+    const key = this.curKey;
+    if(!Perm.canAccessKey(key)){ UI.toast('无权操作该班级','err'); return; }
+    UI.openModal('新增学生 · ' + key,
+      '<div class="field"><label>学生姓名</label><input id="oneName" placeholder="请输入姓名" maxlength="20"></div>',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-primary" onclick="Roster.doAddOne()">确认添加</button>');
+    setTimeout(()=>{ const el=document.getElementById('oneName'); if(el) el.focus(); }, 60);
+  },
+  doAddOne(){
+    const key = this.curKey;
+    const nm = document.getElementById('oneName').value.trim();
+    if(!nm){ UI.toast('请输入姓名','err'); return; }
+    const arr = Store.db.rosters[key] || (Store.db.rosters[key] = []);
+    if(arr.indexOf(nm) !== -1){ UI.toast('该学生已存在','err'); return; }
+    arr.push(nm);
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('已添加：' + nm, 'ok');
+  },
+
+  /** 删除单个学生 */
+  delOne(i){
+    const key = this.curKey;
+    if(!Perm.canAccessKey(key)){ UI.toast('无权操作该班级','err'); return; }
+    const arr = Store.db.rosters[key] || [];
+    const nm = arr[i];
+    if(nm === undefined) return;
+    UI.openModal('删除确认',
+      '<p style="font-size:13.5px;line-height:1.9">确定从 <b>' + UI.esc(key) + '</b> 花名册中删除学生 <b>' + UI.esc(nm) + '</b> 吗？<br><span style="color:var(--txt-sub);font-size:12.5px">该学生已有的打卡记录将保留但不再计入统计。</span></p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Roster.doDelOne(' + i + ')">确认删除</button>');
+  },
+  doDelOne(i){
+    const key = this.curKey;
+    (Store.db.rosters[key] || []).splice(i,1);
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('已删除该学生','ok');
+  },
+
+  /** 清空本班名单 */
+  clearRoster(){
+    const key = this.curKey;
+    if(!Perm.canAccessKey(key)){ UI.toast('无权操作该班级','err'); return; }
+    const n = (Store.db.rosters[key] || []).length;
+    if(!n){ UI.toast('本班名单已为空'); return; }
+    UI.openModal('清空名单确认',
+      '<p style="font-size:13.5px;line-height:1.9">确定清空 <b>' + UI.esc(key) + '</b> 的班级花名册（共 ' + n + ' 人）吗？<br><span style="color:var(--danger);font-size:12.5px">此操作不可撤销，将同时影响该班打卡统计。</span></p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Roster.doClear()">确认清空</button>');
+  },
+  doClear(){
+    const key = this.curKey;
+    Store.db.rosters[key] = [];
+    // 同步清除该班所有打卡记录，避免残留脏数据
+    Object.keys(Store.db.checkins).forEach(k=>{
+      if(k.split('|')[1] === key) delete Store.db.checkins[k];
+    });
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('本班名单已清空','ok');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+ * 【10】模块二：日常运动打卡台账
+ * ------------------------------------------------------------------------- */
+const Checkin = {
+  curKey: null,
+  curDate: UI.today(),
+
+  render(){
+    const box = document.getElementById('checkinBody');
+    if(!Session.user){ box.innerHTML = UI.noPerm('无法访问','请先登录。'); return; }
+
+    // 普通用户默认锁定本班
+    if(!Perm.admin()) this.curKey = Session.user.clsKey;
+    if(!this.curKey) this.curKey = Perm.admin() ? allClasses()[0].key : Session.user.clsKey;
+
+    // 权限拦截：普通用户试图查看其他班级
+    if(!Perm.canAccessKey(this.curKey)){
+      box.innerHTML = UI.noPerm('权限不足',
+        '您当前为班级用户（' + Session.user.clsKey + '），<br>仅可查看本班的运动打卡记录，无法访问其他班级数据。');
+      return;
+    }
+
+    const key = this.curKey;
+    const date = this.curDate;
+    const roster = Store.db.rosters[key] || [];
+    const s = CheckinData.stats(date, key);
+
+    let html = '';
+
+    html += Perm.admin()
+      ? '<div class="alert alert-info">管理员视角：可切换任意年级与班级，查看并标记全院打卡台账。</div>'
+      : '<div class="alert alert-info">班级用户视角：仅可查看与标记本班（<b>' + UI.esc(key) + '</b>）打卡台账，其他班级数据已隐藏。</div>';
+    // 控制栏
+    html += '<div class="card mb16"><div class="card-head">';
+    html += '<div><h3>打卡范围</h3><div class="sub">按年级、班级与日期切换查看</div></div>';
+    html += '<div class="toolbar">';
+    html += '<select id="ckCls" class="sel-ctrl" style="max-width:220px" onchange="Checkin.switchClass(this.value)">' + UI.classOptions(key) + '</select>';
+    html += '<input type="date" id="ckDate" class="sel-ctrl" value="' + date + '" onchange="Checkin.switchDate(this.value)">';
+    html += '<button class="btn btn-ghost btn-sm" onclick="Checkin.setToday()">今天</button>';
+    html += '</div></div>';
+
+    // 统计卡 + 进度条
+    html += '<div class="card-body" style="border-top:1px solid var(--line)">';
+    html += '<div class="grid g-4 mb16">';
+    html += UI.stat('总人数', s.total, '班级花名册人数', true, '人');
+    html += UI.stat('已打卡', s.done, '完成情况良好');
+    html += UI.stat('未打卡', s.undone, s.undone>0?'需及时督促':'全部完成');
+    html += UI.stat('打卡率', s.rate, date, false, '%');
+    html += '</div>';
+    html += '<div class="bar-row"><span style="font-size:12.5px;color:var(--txt-sub);flex:0 0 auto">完成进度</span>' + UI.bar(s.rate) + '<span class="pct">' + s.rate + '%</span></div>';
+    html += '<div class="toolbar mt16">';
+    html += '<button class="btn btn-primary btn-sm" onclick="Checkin.markAll(true)">全部标记已打卡</button>';
+    html += '<button class="btn btn-line btn-sm" onclick="Checkin.markAll(false)">全部取消打卡</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="Checkin.clearDay()">清空当日记录</button>';
+    html += '<div class="spacer"></div>';
+    html += '<span style="font-size:12px;color:var(--txt-sub)">提示：点击学生卡片可直接切换打卡状态</span>';
+    html += '</div>';
+    html += '</div></div>';
+
+    // 花名册打卡方格
+    html += '<div class="card"><div class="card-head"><div><h3>学生打卡明细 · ' + UI.esc(key) + '</h3><div class="sub">' + date + ' · 共 ' + roster.length + ' 人</div></div>';
+    html += '<span class="tag ' + (s.rate>=80?'tag-ok':s.rate>=50?'tag-warn':'tag-danger') + '">打卡率 ' + s.rate + '%</span></div><div class="card-body">';
+
+    if(!roster.length){
+      html += UI.empty('本班尚未导入学生名单，请先前往「班级名单导入」维护花名册');
+    } else {
+      const map = Store.db.checkins[date + '|' + key] || {};
+      html += '<div class="name-grid">';
+      roster.forEach((nm, i)=>{
+        const done = !!map[nm];
+        html += '<div class="name-chip' + (done?' done':'') + '" onclick="Checkin.toggle(' + i + ')">';
+        html += '<span class="idx">' + (i+1) + '</span>';
+        html += '<span class="nm">' + UI.esc(nm) + '</span>';
+        html += '<span class="st">' + (done?'已打卡':'未打卡') + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+
+    box.innerHTML = html;
+  },
+
+  switchClass(key){
+    if(!Perm.canAccessKey(key)){
+      UI.toast('权限不足：无法查看其他班级打卡数据','err');
+      // 强制回落本班
+      this.curKey = Session.user ? Session.user.clsKey : this.curKey;
+      this.render();
+      return;
+    }
+    this.curKey = key;
+    this.render();
+  },
+
+  switchDate(d){
+    this.curDate = d || UI.today();
+    this.render();
+  },
+  setToday(){
+    this.curDate = UI.today();
+    this.render();
+  },
+
+  /** 点击切换单个学生打卡状态 */
+  toggle(i){
+    const key = this.curKey;
+    if(!Perm.canAccessKey(key)){ UI.toast('权限不足','err'); return; }
+    const roster = Store.db.rosters[key] || [];
+    const nm = roster[i];
+    if(nm === undefined) return;
+    CheckinData.toggle(this.curDate, key, nm);
+    this.render();
+  },
+
+  markAll(val){
+    const key = this.curKey;
+    if(!Perm.canAccessKey(key)){ UI.toast('权限不足','err'); return; }
+    if(!(Store.db.rosters[key]||[]).length){ UI.toast('本班暂无学生名单','err'); return; }
+    CheckinData.markAll(this.curDate, key, val);
+    this.render();
+    UI.toast(val ? '已全部标记为打卡' : '已全部取消打卡', 'ok');
+  },
+
+  clearDay(){
+    const key = this.curKey;
+    if(!Perm.canAccessKey(key)){ UI.toast('权限不足','err'); return; }
+    UI.openModal('清空当日打卡',
+      '<p style="font-size:13.5px;line-height:1.9">确定清空 <b>' + UI.esc(key) + '</b> 在 <b>' + this.curDate + '</b> 的全部打卡记录吗？</p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Checkin.doClearDay()">确认清空</button>');
+  },
+  doClearDay(){
+    CheckinData.clearDay(this.curDate, this.curKey);
+    UI.closeModal();
+    this.render();
+    UI.toast('当日打卡记录已清空','ok');
+  }
+};
+  /* ---------------------------------------------------------------------------
+ * 【11】模块三：体育活动开展记录台账
+ * ------------------------------------------------------------------------- */
+const Activity = {
+  render(){
+    const box = document.getElementById('activityBody');
+    const list = Store.db.activities.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||'') || b.createdAt - a.createdAt);
+
+    let html = '';
+    html += '<div class="alert alert-info">' + (Perm.admin()
+      ? '管理员视角：可录入、查看、删除全院所有体育活动台账记录。'
+      : '班级用户视角：可查看全院体育活动台账，并录入本班参与的活动记录。') + '</div>';
+
+    // 统计
+    let totalPeople = 0;
+    const allActCls = new Set();
+    list.forEach(a=>{ totalPeople += Number(a.people)||0; allActCls.add(a.grade + '·' + a.cls); });
+
+    html += '<div class="grid g-3 mb16">';
+    html += UI.stat('活动记录总数', list.length, '学院体育工作台账', true, '条');
+    html += UI.stat('累计参与人次', totalPeople, '各项活动参与人数合计', false, '人次');
+    html += UI.stat('覆盖班级数', allActCls.size, '已开展活动的班级', false, '个');
+    html += '</div>';
+
+    // 录入表单
+    html += '<div class="card mb16"><div class="card-head"><div><h3>录入体育活动</h3><div class="sub">活动名称、开展时间、参与班级、参与人数、总结备注</div></div></div>';
+    html += '<div class="card-body">';
+    html += '<div class="form-row">';
+    html += '<div class="field"><label>活动名称 *</label><input id="acName" placeholder="如：春季趣味运动会" maxlength="60"></div>';
+    html += '<div class="field"><label>开展时间 *</label><input id="acDate" type="date" value="' + UI.today() + '"></div>';
+    html += '<div class="field"><label>参与班级 *</label><select id="acCls">' + UI.classOptions(Perm.admin()?null:(Session.user?Session.user.clsKey:null)) + '</select></div>';
+    html += '<div class="field"><label>参与人数 *</label><input id="acPeople" type="number" min="1" max="9999" placeholder="如：120"></div>';
+    html += '</div>';
+    html += '<div class="field"><label>活动总结备注</label><textarea id="acNote" rows="3" placeholder="活动开展情况、亮点、成效等" maxlength="500"></textarea></div>';
+    html += '<div class="toolbar"><button class="btn btn-primary" onclick="Activity.add()">保存活动记录</button>';
+    html += '<span style="font-size:12px;color:var(--txt-sub)">普通用户仅可录入本班参与的活动</span></div>';
+    html += '</div></div>';
+
+    // 台账表格
+    html += '<div class="card"><div class="card-head"><div><h3>学院体育工作记录台账</h3><div class="sub">共 ' + list.length + ' 条记录</div></div>';
+    html += '<div class="toolbar"><button class="btn btn-ghost btn-sm" onclick="Activity.exportCSV()">导出 CSV</button></div></div>';
+    html += '<div class="card-body">';
+
+    if(!list.length){
+      html += UI.empty('暂无体育活动记录，请在上方录入');
+    } else {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr>';
+      html += '<th style="width:60px">序号</th><th>活动名称</th><th>开展时间</th><th>参与班级</th><th>参与人数</th><th>活动总结备注</th><th>录入人</th>';
+      if(Perm.admin()) html += '<th style="width:80px">操作</th>';
+      html += '</tr></thead><tbody>';
+      list.forEach((a,i)=>{
+        html += '<tr>';
+        html += '<td>' + (i+1) + '</td>';
+        html += '<td><b>' + UI.esc(a.name) + '</b></td>';
+        html += '<td>' + UI.esc(a.date) + '</td>';
+        html += '<td><span class="tag tag-blue">' + UI.esc(a.grade + '·' + a.cls) + '</span></td>';
+        html += '<td>' + (Number(a.people)||0) + ' 人</td>';
+        html += '<td class="cell-note">' + (a.note ? UI.esc(a.note) : '<span style="color:#a8b9c8">—</span>') + '</td>';
+        html += '<td>' + UI.esc(a.author) + '</td>';
+        if(Perm.admin()) html += '<td><button class="btn btn-danger btn-sm" onclick="Activity.del(' + a.id + ')">删除</button></td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div></div>';
+
+    box.innerHTML = html;
+  },
+
+  add(){
+    const name = document.getElementById('acName').value.trim();
+    const date = document.getElementById('acDate').value;
+    const ck   = document.getElementById('acCls').value;
+    const people = parseInt(document.getElementById('acPeople').value, 10);
+    const note = document.getElementById('acNote').value.trim();
+
+    if(!name){ UI.toast('请填写活动名称','err'); return; }
+    if(!date){ UI.toast('请选择开展时间','err'); return; }
+    if(!Perm.canAccessKey(ck)){ UI.toast('权限不足：仅可录入本班活动','err'); return; }
+    if(!people || people <= 0){ UI.toast('请填写有效的参与人数','err'); return; }
+
+    const sp = splitKey(ck);
+    Store.db.activities.push({
+      id: Store.nextId(),
+      name, date, grade:sp.grade, cls:sp.cls,
+      people, note,
+      author: Perm.me(),
+      createdAt: Date.now()
+    });
+    Store.save();
+    this.render();
+    UI.toast('活动记录已保存', 'ok');
+  },
+
+  del(id){
+    UI.openModal('删除确认','<p style="font-size:13.5px;line-height:1.9">确定删除这条体育活动记录吗？此操作不可撤销。</p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Activity.doDel(' + id + ')">确认删除</button>');
+  },
+  doDel(id){
+    Store.db.activities = Store.db.activities.filter(a=>a.id !== id);
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('已删除','ok');
+  },
+
+  exportCSV(){
+    const list = Store.db.activities.slice();
+    let csv = '序号,活动名称,开展时间,参与年级,参与班级,参与人数,活动总结备注,录入人\n';
+    list.forEach((a,i)=>{
+      csv += [i+1, a.name, a.date, a.grade, a.cls, a.people, (a.note||'').replace(/[\n,]/g,' '), a.author].join(',') + '\n';
+    });
+    downloadText(csv, '学院体育活动台账.csv');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+  * 【12】模块四：运动心情与心理状态记录（重点权限控制）
+ * ------------------------------------------------------------------------- */
+const Mood = {
+  selectedMood: '',
+
+  render(){
+    const box = document.getElementById('moodBody');
+    const tip = document.getElementById('moodScopeTip');
+    if(!Session.user){ box.innerHTML = UI.noPerm('无法访问','请先登录。'); return; }
+
+    if(Perm.admin()){
+      tip.textContent = '管理员视角：可浏览、检索全院所有学生提交的运动心情与心理状态记录。';
+    } else {
+      tip.textContent = '班级用户视角：仅可查看与修改本人的心情记录，其他同学的心情内容完全不可见。';
+    }
+
+    // 可见记录（严格过滤）
+    const visible = Store.db.moods.filter(m=>Perm.canSeeMood(m)).sort((a,b)=>b.createdAt - a.createdAt);
+
+    let html = '';
+
+    // 权限说明
+    if(Perm.admin()){
+      html += '<div class="alert alert-info">管理员权限：下方展示全院 <b>' + visible.length + '</b> 条心情记录，可按年级、班级、情绪状态筛选。</div>';
+    } else {
+      html += '<div class="alert alert-info">隐私保护：您仅能查看、编辑 <b>' + UI.esc(Session.user.name) + '</b> 本人的心情记录，其他学生的记录不会加载到页面中。</div>';
+    }
+
+    // ---- 填写表单（仅普通用户可写自己的；管理员也可代填但一般用于演示）----
+    html += '<div class="card mb16"><div class="card-head"><div><h3>记录我的运动心情</h3><div class="sub">运动后情绪、身心状态、压力感受</div></div>';
+    html += '<span class="tag tag-blue">' + UI.esc(Perm.me()) + '</span></div><div class="card-body">';
+
+    html += '<div class="field"><label>运动后情绪状态 *</label><div class="mood-picker" id="moodPicker">';
+    MOOD_OPTIONS.forEach(o=>{
+      html += '<label onclick="Mood.pick(\'' + o.key + '\',this)"><input type="radio" name="mood"><span class="em">' + o.emoji + '</span><span class="tx">' + o.label + '</span></label>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="form-row">';
+    html += '<div class="field"><label>运动项目</label><select id="mdSport">' + SPORTS.map(s=>'<option>'+s+'</option>').join('') + '</select></div>';
+    html += '<div class="field"><label>运动时长（分钟）</label><input id="mdMin" type="number" min="0" max="600" placeholder="如：45"></div>';
+    html += '<div class="field"><label>心理压力感受（1 轻松 — 10 压力大）</label><div class="range-wrap"><input id="mdStress" type="range" min="1" max="10" value="3" oninput="document.getElementById(\'mdStressV\').textContent=this.value"><span class="rv" id="mdStressV">3</span></div></div>';
+    html += '<div class="field"><label>身心状态自评（1 很差 — 10 很好）</label><div class="range-wrap"><input id="mdBody" type="range" min="1" max="10" value="8" oninput="document.getElementById(\'mdBodyV\').textContent=this.value"><span class="rv" id="mdBodyV" style="background:var(--ok)">8</span></div></div>';
+    html += '</div>';
+
+    html += '<div class="field"><label>心情描述与感受</label><textarea id="mdText" rows="3" placeholder="记录本次运动后的心情、压力释放情况、身心感受等" maxlength="600"></textarea></div>';
+    html += '<div class="toolbar"><button class="btn btn-primary" onclick="Mood.add()">提交心情记录</button>';
+    html += '<span style="font-size:12px;color:var(--txt-sub)">记录仅本人与管理员可见，数据保存于本机浏览器</span></div>';
+    html += '</div></div>';
+
+    // ---- 管理员筛选 ----
+    if(Perm.admin() && visible.length){
+      html += '<div class="card mb16"><div class="card-head"><div><h3>记录筛选</h3><div class="sub">按年级、班级、情绪状态检索</div></div></div><div class="card-body">';
+      html += '<div class="toolbar">';
+      html += '<select id="mdFG" class="sel-ctrl" onchange="Mood.filterByGrade()"><option value="">全部年级</option>';
+      Object.keys(GRADE_CONFIG).forEach(g=>{ html += '<option value="'+g+'">'+g+'</option>'; });
+      html += '</select>';
+      html += '<select id="mdFC" class="sel-ctrl" onchange="Mood.render()"><option value="">全部班级</option>';
+      allClasses().forEach(c=>{ html += '<option value="'+c.key+'">'+c.key+'</option>'; });
+      html += '</select>';
+      html += '<select id="mdFM" class="sel-ctrl" onchange="Mood.render()"><option value="">全部情绪</option>';
+      MOOD_OPTIONS.forEach(o=>{ html += '<option value="'+o.key+'">'+o.emoji+' '+o.label+'</option>'; });
+      html += '</select>';
+      html += '</div></div></div>';
+    }
+
+    // ---- 记录列表 ----
+    const filtered = (Perm.admin() && visible.length) ? this.applyFilter(visible) : visible;
+
+    html += '<div class="card"><div class="card-head"><div><h3>' + (Perm.admin() ? '全院心情记录台账' : '我的心情记录') + '</h3><div class="sub">共 ' + filtered.length + ' 条' + (Perm.admin()?'（当前筛选后）':'') + '</div></div>';
+    html += '<span class="tag ' + (Perm.admin()?'tag-blue':'tag-ok') + '">' + (Perm.admin()?'管理员可见全部':'仅本人可见') + '</span></div><div class="card-body">';
+
+    if(!filtered.length){
+      html += UI.empty(Perm.admin() ? '暂无符合条件的心情记录' : '您还没有提交过心情记录，请在上方填写');
+    } else {
+      html += '<div class="grid g-2">';
+      filtered.forEach(m=>{
+        const opt = MOOD_OPTIONS.find(o=>o.key===m.mood) || { emoji:'🙂', label:m.mood };
+        const mine = (Session.isUser() && m.author === Session.user.name && m.clsKey === Session.user.clsKey);
+        html += '<div class="mood-card' + (mine?' mine':'') + '">';
+        html += '<div class="mood-top">';
+        html += '<span class="mood-emo">' + opt.emoji + '</span>';
+        html += '<span class="nm">' + UI.esc(m.author) + '</span>';
+        html += '<span class="tag tag-blue">' + UI.esc(m.clsKey) + '</span>';
+        html += '<span class="tag tag-gray">' + opt.label + '</span>';
+        if(mine) html += '<span class="tag tag-ok">我的记录</span>';
+        html += '</div>';
+        html += '<div class="mood-meta">';
+        html += '<span>运动项目：<b>' + UI.esc(m.sport) + '</b></span>';
+        html += '<span>时长：<b>' + (m.minutes||0) + ' 分钟</b></span>';
+        html += '<span>压力感受：<b>' + m.stress + '/10</b></span>';
+        html += '<span>身心状态：<b>' + m.body + '/10</b></span>';
+        html += '</div>';
+        if(m.text) html += '<div class="mood-text">' + UI.esc(m.text) + '</div>';
+        html += '<div class="mood-foot">';
+        html += '<span style="font-size:11.5px;color:#9fb2c4;align-self:center">记录时间：' + UI.fmt(m.createdAt) + '</span>';
+        if(Perm.canEditMood(m)) html += '<button class="btn btn-line btn-sm" onclick="Mood.edit(' + m.id + ')">编辑</button>';
+        if(Perm.canEditMood(m)) html += '<button class="btn btn-danger btn-sm" onclick="Mood.del(' + m.id + ')">删除</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div></div>';
+
+    box.innerHTML = html;
+  },
+
+  /** 年级联动班级筛选 */
+  filterByGrade(){
+    const g = document.getElementById('mdFG').value;
+    const sel = document.getElementById('mdFC');
+    let opts = '<option value="">全部班级</option>';
+    allClasses().forEach(c=>{
+      if(!g || c.grade === g) opts += '<option value="' + c.key + '">' + c.key + '</option>';
+    });
+    sel.innerHTML = opts;
+    this.render();
+  },
+
+  /** 应用管理员筛选条件 */
+  applyFilter(list){
+    const g = (document.getElementById('mdFG')||{}).value || '';
+    const c = (document.getElementById('mdFC')||{}).value || '';
+    const m = (document.getElementById('mdFM')||{}).value || '';
+    return list.filter(x=>{
+      if(g && x.grade !== g) return false;
+      if(c && x.clsKey !== c) return false;
+      if(m && x.mood !== m) return false;
+      return true;
+    });
+  },
+
+  pick(key, el){
+    this.selectedMood = key;
+    document.querySelectorAll('#moodPicker label').forEach(l=>l.classList.remove('on'));
+    el.classList.add('on');
+  },
+
+  add(){
+    if(!Session.user){ UI.toast('请先登录','err'); return; }
+    if(!this.selectedMood){ UI.toast('请选择运动后情绪状态','err'); return; }
+    const sport = document.getElementById('mdSport').value;
+    const minutes = parseInt(document.getElementById('mdMin').value, 10) || 0;
+    const stress = parseInt(document.getElementById('mdStress').value, 10);
+    const body = parseInt(document.getElementById('mdBody').value, 10);
+    const text = document.getElementById('mdText').value.trim();
+
+    // 记录归属：普通用户 → 本人 + 本班；管理员 → 管理员账号
+    const record = {
+      id: Store.nextId(),
+      author: Perm.me(),
+      clsKey: Perm.admin() ? '管理员' : Session.user.clsKey,
+      grade: Perm.admin() ? '' : Session.user.grade,
+      mood: this.selectedMood,
+      sport, minutes, stress, body, text,
+      createdAt: Date.now()
+    };
+    Store.db.moods.push(record);
+    Store.save();
+    this.selectedMood = '';
+    this.render();
+    UI.toast('心情记录已提交', 'ok');
+  },
+
+  edit(id){
+    const m = Store.db.moods.find(x=>x.id === id);
+    if(!m){ return; }
+    if(!Perm.canEditMood(m)){ UI.toast('权限不足：仅可编辑本人的心情记录','err'); return; }
+
+    let opts = MOOD_OPTIONS.map(o=>
+      '<option value="'+o.key+'"'+(o.key===m.mood?' selected':'')+'>'+o.emoji+' '+o.label+'</option>').join('');
+
+    UI.openModal('编辑心情记录',
+      '<div class="field"><label>运动后情绪状态</label><select id="edMood">' + opts + '</select></div>'+
+      '<div class="form-row"><div class="field"><label>运动项目</label><select id="edSport">' + SPORTS.map(s=>'<option'+(s===m.sport?' selected':'')+'>'+s+'</option>').join('') + '</select></div>'+
+      '<div class="field"><label>运动时长（分钟）</label><input id="edMin" type="number" min="0" max="600" value="' + (m.minutes||0) + '"></div></div>'+
+      '<div class="form-row"><div class="field"><label>心理压力感受（1-10）</label><input id="edStress" type="number" min="1" max="10" value="' + m.stress + '"></div>'+
+      '<div class="field"><label>身心状态自评（1-10）</label><input id="edBody" type="number" min="1" max="10" value="' + m.body + '"></div></div>'+
+      '<div class="field"><label>心情描述</label><textarea id="edText" rows="3" maxlength="600">' + UI.esc(m.text) + '</textarea></div>',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-primary" onclick="Mood.doEdit(' + id + ')">保存修改</button>');
+  },
+  doEdit(id){
+    const m = Store.db.moods.find(x=>x.id === id);
+    if(!m) return;
+    if(!Perm.canEditMood(m)){ UI.toast('权限不足','err'); return; }
+    m.mood = document.getElementById('edMood').value;
+    m.sport = document.getElementById('edSport').value;
+    m.minutes = parseInt(document.getElementById('edMin').value,10) || 0;
+    m.stress = Math.min(10, Math.max(1, parseInt(document.getElementById('edStress').value,10) || 1));
+    m.body   = Math.min(10, Math.max(1, parseInt(document.getElementById('edBody').value,10) || 1));
+    m.text   = document.getElementById('edText').value.trim();
+    m.updatedAt = Date.now();
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('修改已保存','ok');
+  },
+
+  del(id){
+    const m = Store.db.moods.find(x=>x.id === id);
+    if(!m) return;
+    if(!Perm.canEditMood(m)){ UI.toast('权限不足','err'); return; }
+    UI.openModal('删除确认','<p style="font-size:13.5px;line-height:1.9">确定删除这条心情记录吗？此操作不可撤销。</p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Mood.doDel(' + id + ')">确认删除</button>');
+  },
+  doDel(id){
+    const m = Store.db.moods.find(x=>x.id === id);
+    if(!m || !Perm.canEditMood(m)){ UI.closeModal(); UI.toast('权限不足','err'); return; }
+    Store.db.moods = Store.db.moods.filter(x=>x.id !== id);
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('已删除','ok');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+  * 【13】模块五：校园运动自由组队匹配
+ * ------------------------------------------------------------------------- */
+const Team = {
+  filter: '',   // 空 = 全部
+
+  render(){
+    const box = document.getElementById('teamBody');
+    const list = Store.db.teams
+      .filter(t=> !this.filter || t.sport === this.filter)
+      .sort((a,b)=> b.createdAt - a.createdAt);
+
+    let html = '';
+    html += '<div class="alert alert-info">组队平台对全院开放：可浏览全部招募帖、按球类筛选；仅可删除本人发布的组队信息（管理员可删除任意帖子）。</div>';
+
+    // 统计
+    const totalPosts = Store.db.teams.length;
+    const needPeople = Store.db.teams.reduce((s,t)=> s + Math.max(0, t.need - t.joined), 0);
+
+    html += '<div class="grid g-3 mb16">';
+    html += UI.stat('招募帖总数', totalPosts, '全院共享', true, '条');
+    html += UI.stat('当前筛选结果', list.length, this.filter ? '球类：' + this.filter : '全部项目', false, '条');
+    html += UI.stat('合计空缺位置', needPeople, '欢迎踊跃加入', false, '个');
+    html += '</div>';
+
+    // 发布表单
+    html += '<div class="card mb16"><div class="card-head"><div><h3>发布组队约球帖</h3><div class="sub">填写运动项目、活动时间、需要人数、自身水平与联系备注</div></div></div><div class="card-body">';
+    html += '<div class="form-row">';
+    html += '<div class="field"><label>运动项目 *</label><select id="tmSport">' + SPORTS.map(s=>'<option>'+s+'</option>').join('') + '</select></div>';
+    html += '<div class="field"><label>活动时间 *</label><input id="tmTime" type="datetime-local"></div>';
+    html += '<div class="field"><label>需要人数 *</label><input id="tmNeed" type="number" min="2" max="100" value="4"></div>';
+    html += '<div class="field"><label>已加入人数</label><input id="tmJoined" type="number" min="0" max="100" value="1"></div>';
+    html += '<div class="field"><label>自身运动水平 *</label><select id="tmLevel"><option>入门</option><option>初级</option><option>中级</option><option>高级</option></select></div>';
+    html += '<div class="field"><label>活动地点</label><input id="tmPlace" placeholder="如：东区体育馆 3 号场" maxlength="40"></div>';
+    html += '</div>';
+    html += '<div class="field"><label>联系备注</label><textarea id="tmNote" rows="2" placeholder="如：微信 / 手机号 / 其他说明" maxlength="300"></textarea></div>';
+    html += '<div class="toolbar"><button class="btn btn-primary" onclick="Team.add()">发布招募帖</button>';
+    html += '<span style="font-size:12px;color:var(--txt-sub)">发布人：' + UI.esc(Perm.me()) + '</span></div>';
+    html += '</div></div>';
+
+    // 筛选
+    html += '<div class="card mb16"><div class="card-body"><div class="toolbar">';
+    html += '<span style="font-size:12.5px;color:var(--txt-sub);font-weight:600">按球类筛选：</span>';
+    html += '<div class="seg">';
+    html += '<button class="' + (this.filter===''?'on':'') + '" onclick="Team.setFilter(\'\')">全部</button>';
+    SPORTS.forEach(s=>{
+      html += '<button class="' + (this.filter===s?'on':'') + '" onclick="Team.setFilter(\'' + s + '\')">' + s + '</button>';
+    });
+    html += '</div></div></div></div>';
+
+    // 帖子列表
+    if(!list.length){
+      html += '<div class="card"><div class="card-body">' + UI.empty(this.filter ? '当前筛选下暂无组队招募信息' : '暂无组队招募信息，快来发布第一条吧') + '</div></div>';
+    } else {
+      html += '<div class="grid g-3">';
+      list.forEach(t=>{
+        const left = Math.max(0, t.need - t.joined);
+        const full = left === 0;
+        const pct = t.need ? Math.round((t.joined / t.need) * 100) : 100;
+        const canDel = Perm.canDeleteTeam(t);
+        const sportIcon = { '羽毛球':'🏸', '乒乓球':'🏓', '排球':'🏐' }[t.sport] || '运动';
+        html += '<div class="team-card' + (full?' full':'') + '">';
+        html += '<div class="team-top"><h4>' + sportIcon + ' ' + UI.esc(t.sport) + '</h4>' + (full?'<span class="tag tag-gray">已满员</span>':'<span class="tag tag-ok">招募中</span>') + '</div>';
+        html += '<div class="team-lines">';
+        html += '<div class="ln"><b>活动时间</b><span>' + UI.esc(t.time.replace('T',' ')) + '</span></div>';
+        html += '<div class="ln"><b>活动地点</b><span>' + (t.place?UI.esc(t.place):'待定') + '</span></div>';
+        html += '<div class="ln"><b>人数需求</b><span>' + t.need + ' 人（已加入 ' + t.joined + ' 人）</span></div>';
+        html += '<div class="ln"><b>自身水平</b><span><span class="tag tag-blue">' + UI.esc(t.level) + '</span></span></div>';
+        html += '<div class="ln"><b>空余位置</b><span>' + (full ? '<span style="color:var(--warn)">暂无空位</span>' : '<b style="color:var(--ok)">' + left + ' 个</b>') + '</span></div>';
+        html += '<div class="ln"><b>联系备注</b><span>' + (t.note?UI.esc(t.note):'<span style="color:#a8b9c8">—</span>') + '</span></div>';
+        html += '</div>';
+        html += '<div class="bar-row mb12">' + UI.bar(pct) + '<span class="pct">' + pct + '%</span></div>';
+        html += '<div class="team-foot">';
+        html += '<span style="font-size:11.5px;color:#9fb2c4">' + UI.esc(t.author) + ' · ' + UI.fmt(t.createdAt) + '</span>';
+        html += '<div class="spacer" style="flex:1"></div>';
+        if(!full) html += '<button class="btn btn-ghost btn-sm" onclick="Team.join(' + t.id + ')">我要加入</button>';
+        if(canDel) html += '<button class="btn btn-danger btn-sm" onclick="Team.del(' + t.id + ')">删除</button>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    box.innerHTML = html;
+  },
+
+  setFilter(s){ this.filter = s; this.render(); },
+
+  add(){
+    const sport = document.getElementById('tmSport').value;
+    const time = document.getElementById('tmTime').value;
+    const need = parseInt(document.getElementById('tmNeed').value, 10);
+    const joined = parseInt(document.getElementById('tmJoined').value, 10) || 0;
+    const level = document.getElementById('tmLevel').value;
+    const place = document.getElementById('tmPlace').value.trim();
+    const note = document.getElementById('tmNote').value.trim();
+
+    if(!time){ UI.toast('请选择活动时间','err'); return; }
+    if(!need || need < 2){ UI.toast('需要人数至少为 2 人','err'); return; }
+    if(joined < 0 || joined > need){ UI.toast('已加入人数应在 0 到需要人数之间','err'); return; }
+
+    Store.db.teams.push({
+      id: Store.nextId(),
+      sport, time, need, joined, level, place, note,
+      author: Perm.me(),
+      authorCls: Session.isUser() ? Session.user.clsKey : '管理员',
+      createdAt: Date.now()
+    });
+    Store.save();
+    this.render();
+    UI.toast('组队招募已发布','ok');
+  },
+
+  join(id){
+    const t = Store.db.teams.find(x=>x.id === id);
+    if(!t) return;
+    if(t.joined >= t.need){ UI.toast('该队伍已满员','err'); return; }
+    t.joined ++;
+    Store.save();
+    this.render();
+    UI.toast('已加入该组队，请联系发布人确认','ok');
+  },
+
+  del(id){
+    const t = Store.db.teams.find(x=>x.id === id);
+    if(!t) return;
+    if(!Perm.canDeleteTeam(t)){ UI.toast('权限不足：仅可删除本人发布的组队信息','err'); return; }
+    UI.openModal('删除确认','<p style="font-size:13.5px;line-height:1.9">确定删除这条由 <b>' + UI.esc(t.author) + '</b> 发布的 <b>' + UI.esc(t.sport) + '</b> 组队信息吗？</p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Team.doDel(' + id + ')">确认删除</button>');
+  },
+  doDel(id){
+    const t = Store.db.teams.find(x=>x.id === id);
+    if(!t || !Perm.canDeleteTeam(t)){ UI.closeModal(); UI.toast('权限不足','err'); return; }
+    Store.db.teams = Store.db.teams.filter(x=>x.id !== id);
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('已删除该组队信息','ok');
+  }
+};
+  /* ---------------------------------------------------------------------------
+ * 【14】模块六：学院器材柜借用登记
+ * ------------------------------------------------------------------------- */
+const Equip = {
+  /** 某器材已借出数量（未归还） */
+  outCount(eqId){
+    return Store.db.loans
+      .filter(l=>l.eqId === eqId && !l.returnedAt)
+      .reduce((s,l)=> s + (Number(l.qty)||0), 0);
+  },
+  /** 某器材可借库存 */
+  availCount(eq){
+    return Math.max(0, eq.total - this.outCount(eq.id));
+  },
+
+  render(){
+    const box = document.getElementById('equipBody');
+    const eqs = Store.db.equipments;
+    const activeLoans = Store.db.loans.filter(l=>!l.returnedAt);
+    const history = Store.db.loans.slice().sort((a,b)=> b.borrowAt - a.borrowAt);
+
+    let totTotal = 0, totOut = 0;
+    eqs.forEach(e=>{ totTotal += e.total; totOut += this.outCount(e.id); });
+
+    let html = '';
+    html += '<div class="alert alert-info">器材借用登记面向全院开放：所有师生均可查看库存、登记借用与归还；借出记录完整留痕，器材流向可追溯。</div>';
+
+    // 概览统计
+    html += '<div class="grid g-4 mb16">';
+    html += UI.stat('器材种类', eqs.length, '可在下方新增种类', true, '种');
+    html += UI.stat('库存总量', totTotal, '含已借出数量', false, '件');
+    html += UI.stat('当前借出', totOut, '未归还合计', false, '件');
+    html += UI.stat('可借库存', totTotal - totOut, '实时更新', false, '件');
+    html += '</div>';
+
+    // 库存面板
+    html += '<div class="card mb16"><div class="card-head"><div><h3>器材库存实时面板</h3><div class="sub">所有人都可查看各类器材当前可借库存与已借出数量</div></div>';
+    html += '<button class="btn btn-primary btn-sm" onclick="Equip.openAddEq()">新增器材种类</button></div><div class="card-body">';
+    html += '<div class="grid g-4">';
+    eqs.forEach(e=>{
+      const out = this.outCount(e.id);
+      const avail = this.availCount(e);
+      html += '<div class="eq-card">';
+      html += '<h4>🏅 ' + UI.esc(e.name) + (e.builtin?'':' <span class="tag tag-gray">自定义</span>') + '</h4>';
+      html += '<div class="eq-nums">';
+      html += '<div class="n total"><b>' + e.total + '</b><span>库存总量</span></div>';
+      html += '<div class="n out"><b>' + out + '</b><span>已借出</span></div>';
+      html += '<div class="n avail"><b>' + avail + '</b><span>可借库存</span></div>';
+      html += '</div>';
+      html += '<div class="bar' + (avail>0?' ok':' low') + '"><i style="width:' + (e.total ? Math.round(avail/e.total*100) : 0) + '%"></i></div>';
+      html += '</div>';
+    });
+    html += '</div></div></div>';
+
+    // 借用登记表单
+    html += '<div class="card mb16"><div class="card-head"><div><h3>借用登记</h3><div class="sub">填写借用人、所属班级、器材名称、借用数量与借用时间</div></div></div><div class="card-body">';
+    html += '<div class="form-row">';
+    html += '<div class="field"><label>借用人 *</label><input id="lnUser" value="' + UI.esc(Perm.me()==='—'?'':Perm.me()) + '" placeholder="请输入借用人姓名" maxlength="20"></div>';
+    html += '<div class="field"><label>所属班级 *</label><select id="lnCls">' + UI.classOptions(Session.isUser()?Session.user.clsKey:null) + '</select></div>';
+    html += '<div class="field"><label>器材名称 *</label><select id="lnEq" onchange="Equip.showAvail()">' + eqs.map(e=>'<option value="'+e.id+'">'+UI.esc(e.name)+'</option>').join('') + '</select></div>';
+    html += '<div class="field"><label>借用数量 *</label><input id="lnQty" type="number" min="1" max="999" value="1" oninput="Equip.showAvail()"></div>';
+    html += '<div class="field"><label>借用时间 *</label><input id="lnTime" type="datetime-local"></div>';
+    html += '</div>';
+    html += '<div id="lnAvailTip" class="alert alert-info" style="margin-top:4px">—</div>';
+    html += '<div class="toolbar"><button class="btn btn-primary" onclick="Equip.borrow()">提交借用登记</button></div>';
+    html += '</div></div>';
+
+    // 归还登记
+    html += '<div class="card mb16"><div class="card-head"><div><h3>归还登记</h3><div class="sub">选择已借出的器材记录进行归还操作</div></div>';
+    html += '<span class="tag ' + (activeLoans.length?'tag-warn':'tag-gray') + '">待归还 ' + activeLoans.length + ' 条</span></div><div class="card-body">';
+    if(!activeLoans.length){
+      html += UI.empty('当前没有待归还的器材记录');
+    } else {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>借用人</th><th>所属班级</th><th>器材</th><th>数量</th><th>借用时间</th><th style="width:110px">操作</th></tr></thead><tbody>';
+      activeLoans.slice().sort((a,b)=>b.borrowAt - a.borrowAt).forEach(l=>{
+        const eq = eqs.find(e=>e.id === l.eqId);
+        html += '<tr>';
+        html += '<td><b>' + UI.esc(l.user) + '</b></td>';
+        html += '<td>' + UI.esc(l.clsKey) + '</td>';
+        html += '<td>' + UI.esc(eq ? eq.name : '（已删除器材）') + '</td>';
+        html += '<td>' + l.qty + '</td>';
+        html += '<td>' + UI.esc(l.borrowTime || UI.fmt(l.borrowAt)) + '</td>';
+        html += '<td><button class="btn btn-primary btn-sm" onclick="Equip.ret(' + l.id + ')">归还</button></td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div></div>';
+
+    // 借出记录（历史）
+    html += '<div class="card"><div class="card-head"><div><h3>器材借出记录（可追溯）</h3><div class="sub">完整记录谁借走了什么器材、何时借用、何时归还</div></div>';
+    html += '<div class="toolbar"><button class="btn btn-ghost btn-sm" onclick="Equip.exportCSV()">导出 CSV</button>';
+    if(Perm.admin()) html += '<button class="btn btn-danger btn-sm" onclick="Equip.clearHistory()">清空借还记录</button>';
+    html += '</div></div><div class="card-body">';
+
+    if(!history.length){
+      html += UI.empty('暂无器材借还记录');
+    } else {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr>';
+      html += '<th style="width:60px">序号</th><th>借用人</th><th>所属班级</th><th>器材名称</th><th>数量</th><th>借用时间</th><th>归还时间</th><th>状态</th>';
+      html += '</tr></thead><tbody>';
+      history.forEach((l,i)=>{
+        const eq = eqs.find(e=>e.id === l.eqId);
+        html += '<tr>';
+        html += '<td>' + (i+1) + '</td>';
+        html += '<td><b>' + UI.esc(l.user) + '</b></td>';
+        html += '<td>' + UI.esc(l.clsKey) + '</td>';
+        html += '<td>' + UI.esc(eq ? eq.name : '（已删除器材）') + '</td>';
+        html += '<td>' + l.qty + ' 件</td>';
+        html += '<td>' + UI.esc(l.borrowTime || UI.fmt(l.borrowAt)) + '</td>';
+        html += '<td>' + (l.returnedAt ? UI.fmt(l.returnedAt) : '<span style="color:#a8b9c8">—</span>') + '</td>';
+        html += '<td>' + (l.returnedAt ? '<span class="tag tag-ok">已归还</span>' : '<span class="tag tag-warn">借出中</span>') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    html += '</div></div>';
+
+    box.innerHTML = html;
+    this.showAvail();
+  },
+
+  /** 显示当前选择器材的可借数量提示 */
+  showAvail(){
+    const tip = document.getElementById('lnAvailTip');
+    if(!tip) return;
+    const id = parseInt(document.getElementById('lnEq').value, 10);
+    const eq = Store.db.equipments.find(e=>e.id === id);
+    if(!eq){ tip.textContent = '—'; return; }
+    const avail = this.availCount(eq);
+    const qty = parseInt(document.getElementById('lnQty').value, 10) || 0;
+    tip.innerHTML = '器材 <b>' + UI.esc(eq.name) + '</b>：库存 ' + eq.total + ' 件，已借出 ' + this.outCount(eq.id) + ' 件，当前可借 <b style="color:var(--ok)">' + avail + '</b> 件。' +
+      (qty > avail ? ' <span style="color:var(--danger);font-weight:700">本次申请 ' + qty + ' 件已超出可借数量！</span>' : '');
+  },
+
+  borrow(){
+    const user = document.getElementById('lnUser').value.trim();
+    const ck = document.getElementById('lnCls').value;
+    const eqId = parseInt(document.getElementById('lnEq').value, 10);
+    const qty = parseInt(document.getElementById('lnQty').value, 10);
+    const timeVal = document.getElementById('lnTime').value;
+
+    if(!user){ UI.toast('请填写借用人姓名','err'); return; }
+    if(!ck){ UI.toast('请选择所属班级','err'); return; }
+    const eq = Store.db.equipments.find(e=>e.id === eqId);
+    if(!eq){ UI.toast('请选择器材','err'); return; }
+    if(!qty || qty <= 0){ UI.toast('请填写有效的借用数量','err'); return; }
+
+    const avail = this.availCount(eq);
+    if(qty > avail){
+      UI.toast('库存不足：' + eq.name + ' 当前仅可借 ' + avail + ' 件','err');
+      return;
+    }
+
+    Store.db.loans.push({
+      id: Store.nextId(),
+      user: user,
+      clsKey: ck,
+      eqId: eqId,
+      qty: qty,
+      borrowAt: Date.now(),
+      borrowTime: timeVal ? timeVal.replace('T',' ') : UI.now(),
+      returnedAt: null,
+      operator: Perm.me()
+    });
+    Store.save();
+    this.render();
+    UI.toast('借用登记成功：' + eq.name + ' × ' + qty, 'ok');
+  },
+
+  ret(id){
+    const l = Store.db.loans.find(x=>x.id === id);
+    if(!l) return;
+    const eq = Store.db.equipments.find(e=>e.id === l.eqId);
+    UI.openModal('归还确认',
+      '<p style="font-size:13.5px;line-height:1.9">确认 <b>' + UI.esc(l.user) + '</b>（' + UI.esc(l.clsKey) + '）归还 <b>' + UI.esc(eq?eq.name:'器材') + ' × ' + l.qty + '</b> 件吗？</p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-primary" onclick="Equip.doRet(' + id + ')">确认归还</button>');
+  },
+  doRet(id){
+    const l = Store.db.loans.find(x=>x.id === id);
+    if(!l) return;
+    l.returnedAt = Date.now();
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('归还登记完成，库存已恢复', 'ok');
+  },
+
+  /** 新增器材种类 */
+  openAddEq(){
+    UI.openModal('新增器材种类',
+      '<div class="form-row-2">'+
+      '<div class="field"><label>器材名称 *</label><input id="eqName" placeholder="如：跳绳 / 瑜伽垫 / 篮球" maxlength="20"></div>'+
+      '<div class="field"><label>库存总量 *</label><input id="eqTotal" type="number" min="1" max="9999" value="10"></div>'+
+      '</div>'+
+      '<div class="alert alert-info" style="margin-bottom:0">新增的器材将立即出现在库存面板与借用表单中。</div>',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-primary" onclick="Equip.doAddEq()">确认新增</button>');
+  },
+  doAddEq(){
+    const name = document.getElementById('eqName').value.trim();
+    const total = parseInt(document.getElementById('eqTotal').value, 10);
+    if(!name){ UI.toast('请输入器材名称','err'); return; }
+    if(!total || total <= 0){ UI.toast('请输入有效的库存总量','err'); return; }
+    if(Store.db.equipments.some(e=>e.name === name)){ UI.toast('该器材种类已存在','err'); return; }
+    Store.db.equipments.push({ id: Store.nextId(), name: name, total: total, builtin:false });
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('已新增器材：' + name, 'ok');
+  },
+
+  clearHistory(){
+    UI.openModal('清空借还记录',
+      '<p style="font-size:13.5px;line-height:1.9">确定清空全部器材借还记录吗？<br><span style="color:var(--danger);font-size:12.5px">清空后所有器材将自动恢复为全量可借状态，此操作不可撤销。</span></p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Equip.doClearHistory()">确认清空</button>');
+  },
+  doClearHistory(){
+    Store.db.loans = [];
+    Store.save();
+    UI.closeModal();
+    this.render();
+    UI.toast('借还记录已清空','ok');
+  },
+
+  exportCSV(){
+    let csv = '序号,借用人,所属班级,器材名称,数量,借用时间,归还时间,状态,登记人\n';
+    Store.db.loans.slice().sort((a,b)=>b.borrowAt - a.borrowAt).forEach((l,i)=>{
+      const eq = Store.db.equipments.find(e=>e.id === l.eqId);
+      csv += [i+1, l.user, l.clsKey, (eq?eq.name:'已删除器材'), l.qty,
+              (l.borrowTime||UI.fmt(l.borrowAt)),
+              (l.returnedAt?UI.fmt(l.returnedAt):'未归还'),
+              (l.returnedAt?'已归还':'借出中'), l.operator].join(',') + '\n';
+    });
+    downloadText(csv, '学院器材借还记录.csv');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+ * 【15】身份切换 / 账号信息页
+ * ------------------------------------------------------------------------- */
+const Account = {
+  render(){
+    const box = document.getElementById('accountBody');
+    const u = Session.user;
+    if(!u){ box.innerHTML = UI.noPerm('未登录','请先登录后再查看。'); return; }
+
+    const isAdmin = Perm.admin();
+    const scope = Perm.scopeKeys();
+
+    let html = '';
+    // 当前身份卡
+    html += '<div class="card mb16"><div class="card-head"><div><h3>当前登录身份</h3><div class="sub">登录状态保存在本机浏览器，刷新页面不会退出</div></div>';
+    html += '<span class="tag ' + (isAdmin?'tag-blue':'tag-ok') + '">' + (isAdmin?'管理员':'班级用户') + '</span></div><div class="card-body">';
+    html += '<div class="grid g-3">';
+    html += UI.stat('身份类型', isAdmin?'管理员':'班级用户', isAdmin?'拥有全部操作权限':'受班级范围限制', true);
+    html += UI.stat('当前用户', u.name, isAdmin?'全院管理':'本人姓名');
+    html += UI.stat('数据范围', isAdmin ? '全院 22 个班级' : u.clsKey, isAdmin?'可访问全部模块':'仅限本班与本人数据');
+    html += '</div>';
+    html += '<div class="alert alert-info mt16" style="margin-bottom:0">登录时间：' + UI.fmt(u.loginAt) + '</div>';
+    html += '</div></div>';
+
+    // 权限矩阵
+    html += '<div class="card mb16"><div class="card-head"><div><h3>权限规则对照表</h3><div class="sub">系统严格执行以下权限边界</div></div></div><div class="card-body">';
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="min-width:150px">功能模块</th><th>管理员</th><th>普通班级用户</th></tr></thead><tbody>';
+    const rows = [
+      ['数据仪表盘','全院全部统计','仅本班统计'],
+      ['班级名单导入','可管理全部 22 个班级花名册','仅可管理本班花名册'],
+      ['运动打卡台账','可查看、标记全部班级打卡','仅可查看、标记本班打卡'],
+      ['体育活动记录','可查看、录入、删除全部记录','可查看全院台账，录入本班活动'],
+      ['运动心情记录','可浏览全院全部心情记录','仅可查看、编辑本人心情记录'],
+      ['运动组队平台','发布、浏览、删除任意组队帖','发布、浏览，仅可删除本人发布'],
+      ['器材柜借用登记','借用、归还、新增器材、清空记录','借用、归还、新增器材'],
+      ['身份切换','任意切换','可退出并重新登录']
+    ];
+    rows.forEach(r=>{
+      html += '<tr><td><b>' + r[0] + '</b></td><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>';
+    });
+    html += '</tbody></table></div></div></div>';
+
+    // 数据管理
+    html += '<div class="card"><div class="card-head"><div><h3>数据与账号管理</h3><div class="sub">全部数据存放在本机浏览器 localStorage</div></div></div><div class="card-body">';
+    html += '<div class="grid g-4 mb16">';
+    let totalStu = 0;
+    allClasses().forEach(c=>{ totalStu += (Store.db.rosters[c.key]||[]).length; });
+    html += UI.stat('花名册学生总数', totalStu, '全部班级合计', true, '人');
+    html += UI.stat('打卡记录条数', Object.keys(Store.db.checkins).length, '按日期+班级计');
+    html += UI.stat('心情记录条数', Store.db.moods.length, isAdmin?'全院可见':'仅本人可见');
+    html += UI.stat('借还记录条数', Store.db.loans.length, '器材流向可追溯');
+    html += '</div>';
+    html += '<div class="toolbar">';
+    html += '<button class="btn btn-primary" onclick="App.logout()">退出登录 / 切换身份</button>';
+    html += '<button class="btn btn-line" onclick="Account.exportAll()">导出全部数据（JSON 备份）</button>';
+    html += '<button class="btn btn-line" onclick="Account.importAll()">导入数据备份</button>';
+    if(isAdmin) html += '<button class="btn btn-danger" onclick="Account.resetAll()">恢复出厂设置</button>';
+    html += '</div>';
+    html += '<div class="alert alert-warn mt16" style="margin-bottom:0">提示：清除浏览器数据、更换浏览器或使用隐私模式会导致数据丢失。建议定期导出 JSON 备份文件保存。</div>';
+    html += '</div></div>';
+
+    box.innerHTML = html;
+  },
+
+  exportAll(){
+    const payload = { app:'跃动青春·育心强体', version:1, exportedAt: UI.now(), data: Store.db };
+    downloadText(JSON.stringify(payload, null, 2), '运动打卡工作台数据备份_' + UI.today() + '.json');
+    UI.toast('数据备份已导出','ok');
+  },
+
+  importAll(){
+    UI.openModal('导入数据备份',
+      '<div class="field"><label>选择备份文件（.json）</label><input type="file" id="impFile" accept=".json,application/json"></div>'+
+      '<div class="alert alert-warn" style="margin-bottom:0">导入将<b>覆盖</b>当前全部数据，请谨慎操作。建议先导出备份。</div>',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-primary" onclick="Account.doImportAll()">确认导入</button>');
+  },
+  doImportAll(){
+    const f = document.getElementById('impFile').files[0];
+    if(!f){ UI.toast('请选择备份文件','err'); return; }
+    const reader = new FileReader();
+    reader.onload = e=>{
+      try {
+        const obj = JSON.parse(e.target.result);
+        const d = obj.data || obj;
+        if(!d || typeof d !== 'object') throw new Error('格式错误');
+        Store.db = Object.assign(Store.blank(), d);
+        Store.save();
+        UI.closeModal();
+        App.refresh();
+        UI.toast('数据导入成功','ok');
+      } catch(err){
+        UI.toast('导入失败：文件格式不正确','err');
+      }
+    };
+    reader.readAsText(f, 'utf-8');
+  },
+
+  resetAll(){
+    UI.openModal('恢复出厂设置',
+      '<p style="font-size:13.5px;line-height:1.9">确定清空全部数据并恢复初始状态吗？<br><span style="color:var(--danger);font-size:12.5px">所有班级名单、打卡记录、活动、心情、组队、器材记录将被永久删除，且不可恢复。</span></p >',
+      '<button class="btn btn-line" onclick="UI.closeModal()">取消</button>'+
+      '<button class="btn btn-danger" onclick="Account.doResetAll()">确认清空全部数据</button>');
+  },
+  doResetAll(){
+    Store.db = Store.blank();
+    Store.db.equipments = DEFAULT_EQUIPMENTS.map(e=>({ id:Store.nextId(), name:e.name, total:e.total, builtin:true }));
+    Store.save();
+    UI.closeModal();
+    App.refresh();
+    UI.toast('已恢复出厂设置','ok');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+ * 【16】通用工具：文本文件下载
+ * ------------------------------------------------------------------------- */
+function downloadText(text, filename){
+  // 加 BOM 以便 Excel 正确识别中文
+  const blob = new Blob(['\ufeff' + text], { type:'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+
+/* ---------------------------------------------------------------------------
+ * 【17】启动
+ * ------------------------------------------------------------------------- */
+(function init(){
+  Store.load();
+  LoginUI.init();
+
+  // 点击遮罩关闭模态框
+  document.getElementById('modalMask').addEventListener('click', function(e){
+    if(e.target === this) UI.closeModal();
+  });
+  // ESC 关闭
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') UI.closeModal();
+  });
+  // 窗口尺寸变化：恢复桌面端时收起移动遮罩
+  window.addEventListener('resize', function(){
+    if(window.innerWidth > 1024){
+      document.getElementById('sidebar').classList.remove('on');
+      document.getElementById('sideMask').classList.remove('on');
+    }
+  });
+
+  // 自动登录：若本机已有登录状态，直接进入应用
+  if(Session.load()){
+    document.getElementById('loginLayer').style.display = 'none';
+    document.getElementById('app').classList.add('on');
+    App.boot();
+  }
+})();
+</script>
+</body>
+</html>
